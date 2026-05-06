@@ -34,4 +34,5 @@
 [ ] schwierigkeitsgrade prüfen, schwer schlägt aktuell immer nur drüber.
 [x] spielfeld weiter runter
 [x] bode in sandgelb und 3px dick
-[ ] volley-arcade2 als banner hinten an die hallen wand 
+[x] volley-arcade als banner hinten an die hallen wand
+[ ] block sprung, pritschen

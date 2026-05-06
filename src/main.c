@@ -1448,6 +1448,10 @@ static void render_scene_overlay(
     }
 
     SDL_Rect box = {200, 182, 560, 280};
+    if (scene == SCENE_START) {
+        box.x = 96;
+        box.y = 238;
+    }
     SDL_SetRenderDrawColor(renderer, 6, 12, 20, 230);
     SDL_RenderFillRect(renderer, &box);
     SDL_SetRenderDrawColor(renderer, 71, 132, 163, 255);
@@ -1571,6 +1575,43 @@ static void render_game(
     SDL_Rect court = {(int)COURT_MIN_X, 70, (int)(COURT_MAX_X - COURT_MIN_X), (int)(FLOOR_Y - 70.0f)};
     SDL_SetRenderDrawColor(renderer, 21, 48, 70, 255);
     SDL_RenderFillRect(renderer, &court);
+
+    {
+        SDL_Rect banner = {(WINDOW_WIDTH - 392) / 2, 164, 392, 58};
+        int tipW = 24;
+        int midY = banner.y + banner.h / 2;
+        const char *bannerLabel = "VOLLEY ARCADE";
+        int textScale = 3;
+        int textWidth = ((int)strlen(bannerLabel) * 6 - 1) * textScale;
+        int textHeight = 7 * textScale;
+        int textX = banner.x + (banner.w - textWidth) / 2;
+        int textY = banner.y + (banner.h - textHeight) / 2;
+        SDL_Color bannerText = {250, 238, 170, 255};
+        SDL_Color bannerShadow = {24, 44, 66, 255};
+
+        SDL_SetRenderDrawColor(renderer, 24, 86, 122, 255);
+        SDL_RenderFillRect(renderer, &banner);
+
+        for (int y = 0; y < banner.h; ++y) {
+            int dy = abs(y - banner.h / 2);
+            int inset = (dy * tipW) / (banner.h / 2);
+            int lx = banner.x - tipW + inset;
+            int rx = banner.x + banner.w + tipW - inset;
+
+            SDL_RenderDrawLine(renderer, lx, banner.y + y, banner.x - 1, banner.y + y);
+            SDL_RenderDrawLine(renderer, banner.x + banner.w, banner.y + y, rx, banner.y + y);
+        }
+
+        SDL_SetRenderDrawColor(renderer, 236, 196, 106, 255);
+        SDL_RenderDrawRect(renderer, &banner);
+        SDL_RenderDrawLine(renderer, banner.x - tipW, midY, banner.x, banner.y);
+        SDL_RenderDrawLine(renderer, banner.x - tipW, midY, banner.x, banner.y + banner.h - 1);
+        SDL_RenderDrawLine(renderer, banner.x + banner.w + tipW, midY, banner.x + banner.w - 1, banner.y);
+        SDL_RenderDrawLine(renderer, banner.x + banner.w + tipW, midY, banner.x + banner.w - 1, banner.y + banner.h - 1);
+
+        draw_text_5x7(renderer, textX + 1, textY + 1, bannerLabel, textScale, bannerShadow);
+        draw_text_5x7(renderer, textX, textY, bannerLabel, textScale, bannerText);
+    }
 
     SDL_SetRenderDrawColor(renderer, 224, 196, 122, 255);
     SDL_RenderDrawLine(renderer, (int)COURT_MIN_X, (int)FLOOR_Y - 1, (int)COURT_MAX_X, (int)FLOOR_Y - 1);
