@@ -1572,8 +1572,10 @@ static void render_game(
     SDL_SetRenderDrawColor(renderer, 21, 48, 70, 255);
     SDL_RenderFillRect(renderer, &court);
 
-    SDL_SetRenderDrawColor(renderer, 45, 178, 210, 255);
+    SDL_SetRenderDrawColor(renderer, 224, 196, 122, 255);
+    SDL_RenderDrawLine(renderer, (int)COURT_MIN_X, (int)FLOOR_Y - 1, (int)COURT_MAX_X, (int)FLOOR_Y - 1);
     SDL_RenderDrawLine(renderer, (int)COURT_MIN_X, (int)FLOOR_Y, (int)COURT_MAX_X, (int)FLOOR_Y);
+    SDL_RenderDrawLine(renderer, (int)COURT_MIN_X, (int)FLOOR_Y + 1, (int)COURT_MAX_X, (int)FLOOR_Y + 1);
 
     {
         int leftPoleX = (int)NET_X - 14;
