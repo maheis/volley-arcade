@@ -31,9 +31,9 @@
 [x] schiri pfeifen bei punkten
 [ ] schiri anzeigen ob in / out
 [x] neuer name Volley-Arcade
-[ ] schwierigkeitsgrade prüfen, schwer schlägt aktuell immer nur drüber.
 [x] spielfeld weiter runter
 [x] bode in sandgelb und 3px dick
 [x] volley-arcade als banner hinten an die hallen wand
 [x] blocksprung vs. pritschen
-[ ] wandabpraller konfigurierbar
+[x] schwierigkeitsgrade prüfen, schwer schlägt aktuell immer nur drüber.
+[x] wandabpraller und aus in den schwierigkeitsgraden verändern.

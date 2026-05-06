@@ -318,19 +318,12 @@ static char scancode_to_name_char(SDL_Scancode sc) {
 
 static void refresh_difficulty(Game *game) {
     int level = 1 + (int)(game->elapsedSeconds / 60.0f);
-    float baseScale = 1.0f;
     if (level > 8) {
         level = 8;
     }
 
-    if (game->difficulty <= 0) {
-        baseScale = 0.70f;
-    } else if (game->difficulty >= 2) {
-        baseScale = 1.40f;
-    }
-
     game->level = level;
-    game->cpuSpeedScale = baseScale * (1.0f + 0.08f * (float)(level - 1));
+    game->cpuSpeedScale = 1.0f * (1.0f + 0.08f * (float)(level - 1));
 
     {
         float tightened = PLAYER_BLOCK_TIME - 0.01f * (float)(level - 1);
@@ -678,6 +671,8 @@ static void place_ball_in_server_hand(Game *game) {
 static void start_serve(Game *game, int side) {
     int v;
     float serveScale = 1.0f;
+    float xScale = 1.0f;
+    float yScale = 1.0f;
 
     if (!game->waitingServe || game->serverSide != side) {
         return;
@@ -693,21 +688,24 @@ static void start_serve(Game *game, int side) {
         game->ball.vel.x = 360.0f;
         game->ball.vel.y = -430.0f;
     } else {
-        serveScale = clampf(game->cpuSpeedScale, 0.8f, 1.9f);
+        serveScale = clampf(game->cpuSpeedScale, 0.90f, 1.12f);
+        xScale = 0.90f;
+        yScale = 1.02f;
+
         /* Cycle through a few serve trajectories so CPU serves are varied and net-safe. */
         v = game->cpuServeVariant % 4;
         if (v == 0) {
-            game->ball.vel.x = -560.0f * serveScale;
-            game->ball.vel.y = -430.0f * serveScale;
+            game->ball.vel.x = -560.0f * serveScale * xScale;
+            game->ball.vel.y = -430.0f * serveScale * yScale;
         } else if (v == 1) {
-            game->ball.vel.x = -520.0f * serveScale;
-            game->ball.vel.y = -500.0f * serveScale;
+            game->ball.vel.x = -520.0f * serveScale * xScale;
+            game->ball.vel.y = -500.0f * serveScale * yScale;
         } else if (v == 2) {
-            game->ball.vel.x = -620.0f * serveScale;
-            game->ball.vel.y = -390.0f * serveScale;
+            game->ball.vel.x = -620.0f * serveScale * xScale;
+            game->ball.vel.y = -390.0f * serveScale * yScale;
         } else {
-            game->ball.vel.x = -540.0f * serveScale;
-            game->ball.vel.y = -460.0f * serveScale;
+            game->ball.vel.x = -540.0f * serveScale * xScale;
+            game->ball.vel.y = -460.0f * serveScale * yScale;
         }
         game->cpuServeVariant = (game->cpuServeVariant + 1) % 4;
     }
@@ -792,13 +790,7 @@ static void reset_rally(Game *game) {
     game->ballSide = game->serverSide;
     game->lastTouchSide = 0;
     game->waitingServe = true;
-    if (game->difficulty <= 0) {
-        game->cpuServeTimer = 0.82f;
-    } else if (game->difficulty >= 2) {
-        game->cpuServeTimer = 0.34f;
-    } else {
-        game->cpuServeTimer = 0.55f;
-    }
+    game->cpuServeTimer = 0.55f;
     game->serveCharging = false;
     game->serveCharge = 0.0f;
     game->serveOutOnMax = false;
@@ -815,6 +807,36 @@ static bool can_touch_ball(const Game *game) {
         return true;
     }
     return game->touchTimer >= TOUCH_MIN_INTERVAL && game->touchRiseReached;
+}
+
+static bool should_rebound_on_back_wall(const Game *game, int wallSide, float ballY) {
+    float courtTopY = 40.0f;
+    float middleY = courtTopY + (FLOOR_Y - courtTopY) * 0.5f;
+    float lowerQuarterY = FLOOR_Y - (FLOOR_Y - courtTopY) * 0.25f;
+    bool ownSide = (game->lastTouchSide == wallSide);
+    bool opponentSide = (game->lastTouchSide == -wallSide);
+
+    if (game->difficulty <= 0) {
+        /* Easy: all back-wall contacts rebound, never out. */
+        return true;
+    }
+
+    if (game->difficulty >= 2) {
+        /* Hard: no back-wall rebounds, always out. */
+        return false;
+    }
+
+    /* Normal: own side rebounds only in upper half. */
+    if (ownSide && ballY < middleY) {
+        return true;
+    }
+
+    /* Normal: opponent blasting into lower quarter is always out. */
+    if (opponentSide && ballY >= lowerQuarterY) {
+        return false;
+    }
+
+    return false;
 }
 
 static void register_ball_touch(Game *game) {
@@ -910,12 +932,6 @@ static unsigned update_game(Game *game, float dt, const Uint8 *keys) {
     }
 
     game->elapsedSeconds += dt;
-
-    if (game->difficulty <= 0) {
-        aiFactor = 0.78f;
-    } else if (game->difficulty >= 2) {
-        aiFactor = 1.28f;
-    }
 
     game->touchTimer += dt;
     if (game->touchGateActive && !game->touchRiseReached) {
@@ -1084,21 +1100,23 @@ static unsigned update_game(Game *game, float dt, const Uint8 *keys) {
     {
         float prevBallX = game->ball.pos.x;
         float prevBallY = game->ball.pos.y;
-        float lowerQuarterY = FLOOR_Y - (FLOOR_Y - 40.0f) * 0.25f;
-        bool inLowerQuarter;
+        bool leftRebound;
+        bool rightRebound;
 
         game->ball.vel.y += GRAVITY * dt;
         game->ball.pos.x += game->ball.vel.x * dt;
         game->ball.pos.y += game->ball.vel.y * dt;
-        inLowerQuarter = (game->ball.pos.y >= lowerQuarterY);
 
-        if (game->serveOutOnMax && game->ball.pos.x - BALL_RADIUS > COURT_MAX_X) {
+        if (game->serveOutOnMax && game->difficulty >= 2 && game->ball.pos.x - BALL_RADIUS > COURT_MAX_X) {
             award_point(game, game->lastTouchSide > 0, &events);
             return events;
         }
 
+        leftRebound = should_rebound_on_back_wall(game, -1, game->ball.pos.y);
+        rightRebound = should_rebound_on_back_wall(game, 1, game->ball.pos.y);
+
         if (game->ball.pos.x + BALL_RADIUS < COURT_MIN_X) {
-            if (!inLowerQuarter && game->lastTouchSide < 0) {
+            if (leftRebound) {
                 game->ball.pos.x = COURT_MIN_X + BALL_RADIUS;
                 game->ball.vel.x = fabsf(game->ball.vel.x) * 0.86f;
                 events |= EVENT_WALL_BOUNCE;
@@ -1108,7 +1126,7 @@ static unsigned update_game(Game *game, float dt, const Uint8 *keys) {
             }
         }
         if (game->ball.pos.x - BALL_RADIUS > COURT_MAX_X) {
-            if (!inLowerQuarter && game->lastTouchSide > 0) {
+            if (rightRebound) {
                 game->ball.pos.x = COURT_MAX_X - BALL_RADIUS;
                 game->ball.vel.x = -fabsf(game->ball.vel.x) * 0.86f;
                 events |= EVENT_WALL_BOUNCE;
