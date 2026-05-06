@@ -31,3 +31,7 @@
 [ ] schiri pfeifen bei punkten
 [ ] schiri anzeigen ob in / out
 [x] neuer name Volley-Arcade
+[ ] schwierigkeitsgrade prüfen, schwer schlägt aktuell immer nur drüber.
+[x] spielfeld weiter runter
+[ ] bode in sandgelb und 3px dick
+[ ] arcade volley als banner hinten an die hallen wand 

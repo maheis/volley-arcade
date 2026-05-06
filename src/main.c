@@ -11,8 +11,8 @@
 #define COURT_MIN_X 0.0f
 #define COURT_MAX_X ((float)WINDOW_WIDTH)
 #define NET_X 512.0f
-#define NET_TOP_Y 280.0f
-#define FLOOR_Y 520.0f
+#define NET_TOP_Y 320.0f
+#define FLOOR_Y 560.0f
 
 #define PLAYER_W 26.0f
 #define PLAYER_H 160.0f
