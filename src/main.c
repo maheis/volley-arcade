@@ -29,6 +29,7 @@
 #define PLAYER_JUMP_HOLD_TIME 0.16f
 #define PLAYER_JUMP_HOLD_GRAVITY_MULT 0.46f
 #define PLAYER_JUMP_RELEASE_GRAVITY_MULT 1.72f
+#define BLOCK_JUMP_NET_DISTANCE 50.0f
 #define CPU_BLOCK_TIME 0.14f
 #define CPU_JUMP_SPEED -430.0f
 #define CPU_SPEED 260.0f
@@ -420,7 +421,17 @@ static float point_segment_distance_sq(float px, float py, float ax, float ay, f
     }
 }
 
-static void compute_arm_pose(float bodyX, float bodyY, bool towardRight, bool armsUp, float *shoulderX, float *shoulderY, float *handX, float *handY) {
+static void compute_arm_pose(
+    float bodyX,
+    float bodyY,
+    bool towardRight,
+    bool armsUp,
+    bool nearNet,
+    float *shoulderX,
+    float *shoulderY,
+    float *handX,
+    float *handY
+) {
     float dir = towardRight ? 1.0f : -1.0f;
     float sx = bodyX + PLAYER_W * 0.5f + dir * 3.0f;
     float sy = bodyY + 50.0f;
@@ -428,8 +439,15 @@ static void compute_arm_pose(float bodyX, float bodyY, bool towardRight, bool ar
     float hy;
 
     if (armsUp) {
-        hx = sx + dir * 4.0f;
-        hy = sy - 100.0f;
+        if (nearNet) {
+            /* Blocksprung at the net: hands fully extended above the head. */
+            hx = sx + dir * 4.0f;
+            hy = sy - 100.0f;
+        } else {
+            /* Pritschen farther back: raised, but not full block reach. */
+            hx = sx + dir * 16.0f;
+            hy = sy - 72.0f;
+        }
     } else {
         hx = sx + dir * 34.0f;
         hy = sy + 36.0f;
@@ -868,10 +886,12 @@ static unsigned update_game(Game *game, float dt, const Uint8 *keys) {
     float playerShoulderY;
     float playerHandX;
     float playerHandY;
+    bool playerNearNet;
     float cpuShoulderX;
     float cpuShoulderY;
     float cpuHandX;
     float cpuHandY;
+    bool cpuNearNet;
     bool playerJumpHeld;
     bool rightJumpHeld;
     float playerGravityScale;
@@ -963,9 +983,11 @@ static unsigned update_game(Game *game, float dt, const Uint8 *keys) {
     playerHeadY = game->player.y;
     cpuHeadX = game->cpu.x + PLAYER_W * 0.5f;
     cpuHeadY = game->cpu.y;
+    playerNearNet = (NET_X - playerHeadX) <= BLOCK_JUMP_NET_DISTANCE;
+    cpuNearNet = (cpuHeadX - NET_X) <= BLOCK_JUMP_NET_DISTANCE;
 
-    compute_arm_pose(game->player.x, game->player.y, true, !game->player.onGround, &playerShoulderX, &playerShoulderY, &playerHandX, &playerHandY);
-    compute_arm_pose(game->cpu.x, game->cpu.y, false, !game->cpu.onGround, &cpuShoulderX, &cpuShoulderY, &cpuHandX, &cpuHandY);
+    compute_arm_pose(game->player.x, game->player.y, true, !game->player.onGround, playerNearNet, &playerShoulderX, &playerShoulderY, &playerHandX, &playerHandY);
+    compute_arm_pose(game->cpu.x, game->cpu.y, false, !game->cpu.onGround, cpuNearNet, &cpuShoulderX, &cpuShoulderY, &cpuHandX, &cpuHandY);
 
     if (game->waitingServe) {
         place_ball_in_server_hand(game);
@@ -1675,10 +1697,12 @@ static void render_game(
     float playerShoulderY;
     float playerHandX;
     float playerHandY;
+    bool playerNearNet;
     float cpuShoulderX;
     float cpuShoulderY;
     float cpuHandX;
     float cpuHandY;
+    bool cpuNearNet;
     bool playerArmInFront;
     bool cpuArmInFront;
     SDL_Color playerBodyColor;
@@ -1704,8 +1728,11 @@ static void render_game(
     }
     SDL_RenderFillRect(renderer, &cpu);
 
-    compute_arm_pose(game->player.x, game->player.y, true, !game->player.onGround, &playerShoulderX, &playerShoulderY, &playerHandX, &playerHandY);
-    compute_arm_pose(game->cpu.x, game->cpu.y, false, !game->cpu.onGround, &cpuShoulderX, &cpuShoulderY, &cpuHandX, &cpuHandY);
+    playerNearNet = (NET_X - (game->player.x + PLAYER_W * 0.5f)) <= BLOCK_JUMP_NET_DISTANCE;
+    cpuNearNet = ((game->cpu.x + PLAYER_W * 0.5f) - NET_X) <= BLOCK_JUMP_NET_DISTANCE;
+
+    compute_arm_pose(game->player.x, game->player.y, true, !game->player.onGround, playerNearNet, &playerShoulderX, &playerShoulderY, &playerHandX, &playerHandY);
+    compute_arm_pose(game->cpu.x, game->cpu.y, false, !game->cpu.onGround, cpuNearNet, &cpuShoulderX, &cpuShoulderY, &cpuHandX, &cpuHandY);
     playerArmInFront = !game->player.onGround;
     cpuArmInFront = !game->cpu.onGround;
 

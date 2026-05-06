@@ -35,4 +35,4 @@
 [x] spielfeld weiter runter
 [x] bode in sandgelb und 3px dick
 [x] volley-arcade als banner hinten an die hallen wand
-[ ] block sprung, pritschen
+[x] blocksprung vs. pritschen
