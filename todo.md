@@ -19,7 +19,7 @@
 [x] schwierigkeitsgrade prüfen
 [x] highscore verbessern
 [x] letzten spielernamen merken
-[ ] speichern im .config path
+[x] speichern im .config path
 [x] höher springen
 [x] arme
 [x] arme länger und breiter

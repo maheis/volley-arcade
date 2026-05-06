@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
 
 #define WINDOW_WIDTH 1024
 #define WINDOW_HEIGHT 600
@@ -54,6 +56,8 @@
 #define AUDIO_AMPLITUDE 1800
 #define MAX_HIGHSCORES 7
 #define HIGHSCORE_NAME_LEN 10
+#define HIGHSCORE_REL_DIR "volley-arcade"
+#define HIGHSCORE_FILENAME "highscores.dat"
 
 typedef struct Vec2 {
     float x;
@@ -154,8 +158,79 @@ static float clampf(float value, float min, float max) {
     return value;
 }
 
+static void get_highscore_dir_path(char *out, size_t outSize) {
+    const char *xdgConfigHome = getenv("XDG_CONFIG_HOME");
+    const char *home = getenv("HOME");
+
+    if (outSize == 0) {
+        return;
+    }
+
+    if (xdgConfigHome && xdgConfigHome[0] != '\0') {
+        snprintf(out, outSize, "%s/%s", xdgConfigHome, HIGHSCORE_REL_DIR);
+        return;
+    }
+
+    if (home && home[0] != '\0') {
+        snprintf(out, outSize, "%s/.config/%s", home, HIGHSCORE_REL_DIR);
+        return;
+    }
+
+    out[0] = '\0';
+}
+
+static void get_highscore_file_path(char *out, size_t outSize) {
+    char dirPath[512];
+
+    if (outSize == 0) {
+        return;
+    }
+
+    get_highscore_dir_path(dirPath, sizeof(dirPath));
+    if (dirPath[0] == '\0') {
+        snprintf(out, outSize, "%s", HIGHSCORE_FILENAME);
+        return;
+    }
+
+    snprintf(out, outSize, "%s/%s", dirPath, HIGHSCORE_FILENAME);
+}
+
+static void ensure_directory_recursive(const char *path) {
+    char tmp[512];
+    size_t len;
+
+    if (!path || path[0] == '\0') {
+        return;
+    }
+
+    len = strlen(path);
+    if (len == 0 || len >= sizeof(tmp)) {
+        return;
+    }
+
+    snprintf(tmp, sizeof(tmp), "%s", path);
+
+    for (char *p = tmp + 1; *p != '\0'; ++p) {
+        if (*p == '/') {
+            *p = '\0';
+            (void)mkdir(tmp, 0700);
+            *p = '/';
+        }
+    }
+
+    (void)mkdir(tmp, 0700);
+}
+
+static void ensure_highscore_directory(void) {
+    char dirPath[512];
+    get_highscore_dir_path(dirPath, sizeof(dirPath));
+    ensure_directory_recursive(dirPath);
+}
+
 static int load_highscores(HighscoreEntry *entries, int maxEntries) {
-    FILE *f = fopen("highscores.dat", "r");
+    char path[640];
+    get_highscore_file_path(path, sizeof(path));
+    FILE *f = fopen(path, "r");
     int count = 0;
 
     if (!f) {
@@ -198,7 +273,12 @@ static int load_highscores(HighscoreEntry *entries, int maxEntries) {
 }
 
 static void save_highscores(const HighscoreEntry *entries, int count) {
-    FILE *f = fopen("highscores.dat", "w");
+    char path[640];
+
+    ensure_highscore_directory();
+    get_highscore_file_path(path, sizeof(path));
+
+    FILE *f = fopen(path, "w");
     if (!f) {
         return;
     }
