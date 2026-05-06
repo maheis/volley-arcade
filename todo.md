@@ -26,8 +26,8 @@
 [x] ball soll an der decke nicht abprallen, sondern aus dem bild verschwinden, weiter fliegen und wieder in bild kommen.
 [x] spielfeld soll über die gesamte bildschirmbreite gehen.
 [x] ball soll vor der punktetafel fliegen
-[ ] schiri zeichnen
 [ ] publikum zeichne
+[ ] schiri zeichnen
 [ ] schiri pfeifen bei punkten
 [ ] schiri anzeigen ob in / out
 [x] neuer name Volley-Arcade

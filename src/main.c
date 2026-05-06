@@ -45,6 +45,7 @@
 #define TOUCH_MIN_INTERVAL 0.5f
 #define TOUCH_MIN_RISE_PX 30.0f
 #define SERVE_CHARGE_MAX_TIME 1.2f
+#define START_BANNER_FADE_TIME 1.2f
 
 #define FIXED_DT (1.0f / 120.0f)
 #define MAX_ACCUMULATED_TIME 0.25f
@@ -138,6 +139,7 @@ typedef struct Game {
     bool touchRiseReached;
     float touchTimer;
     float touchStartY;
+    float startBannerFade;
 } Game;
 
 static void draw_filled_circle(SDL_Renderer *renderer, int cx, int cy, int radius);
@@ -869,6 +871,7 @@ static void init_game(Game *game, bool twoPlayerMode, int difficulty) {
     game->blockWindow = PLAYER_BLOCK_TIME;
     game->cpuSpeedScale = 1.0f;
     game->serverSide = 1;
+    game->startBannerFade = START_BANNER_FADE_TIME;
     refresh_difficulty(game);
     reset_rally(game);
 }
@@ -896,6 +899,13 @@ static unsigned update_game(Game *game, float dt, const Uint8 *keys) {
     bool rightJumpHeld;
     float playerGravityScale;
     float rightGravityScale;
+
+    if (game->startBannerFade > 0.0f) {
+        game->startBannerFade -= dt;
+        if (game->startBannerFade < 0.0f) {
+            game->startBannerFade = 0.0f;
+        }
+    }
 
     game->elapsedSeconds += dt;
 
@@ -1345,6 +1355,75 @@ static void draw_text_5x7(SDL_Renderer *renderer, int x, int y, const char *text
     }
 }
 
+static bool dither_keep_pixel(int x, int y, float visibility, int pixelSize) {
+    uint32_t h;
+    uint32_t n;
+
+    if (visibility >= 1.0f) {
+        return true;
+    }
+    if (visibility <= 0.0f) {
+        return false;
+    }
+
+    if (pixelSize < 1) {
+        pixelSize = 1;
+    }
+
+    x /= pixelSize;
+    y /= pixelSize;
+
+    h = (uint32_t)(x * 73856093u) ^ (uint32_t)(y * 19349663u);
+    h ^= h >> 13;
+    h *= 1274126177u;
+    n = h & 1023u;
+    return ((float)n / 1023.0f) < visibility;
+}
+
+static void draw_dithered_fill_rect(SDL_Renderer *renderer, SDL_Rect rect, SDL_Color color, float visibility, int pixelSize) {
+    if (rect.w <= 0 || rect.h <= 0 || visibility <= 0.0f) {
+        return;
+    }
+
+    SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
+    for (int y = rect.y; y < rect.y + rect.h; y += pixelSize) {
+        for (int x = rect.x; x < rect.x + rect.w; x += pixelSize) {
+            SDL_Rect px = {x, y, pixelSize, pixelSize};
+            if (!dither_keep_pixel(x, y, visibility, pixelSize)) {
+                continue;
+            }
+            SDL_RenderFillRect(renderer, &px);
+        }
+    }
+}
+
+static void draw_text_5x7_dithered(SDL_Renderer *renderer, int x, int y, const char *text, int scale, SDL_Color color, float visibility, int pixelSize) {
+    SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
+
+    for (int i = 0; text[i] != '\0'; ++i) {
+        const uint8_t *g = glyph_5x7(text[i]);
+        for (int row = 0; row < 7; ++row) {
+            for (int col = 0; col < 5; ++col) {
+                if (((g[row] >> (4 - col)) & 1) == 0) {
+                    continue;
+                }
+
+                for (int sy = 0; sy < scale; sy += pixelSize) {
+                    for (int sx = 0; sx < scale; sx += pixelSize) {
+                        int pxX = x + i * (6 * scale) + col * scale + sx;
+                        int pxY = y + row * scale + sy;
+                        SDL_Rect px = {pxX, pxY, pixelSize, pixelSize};
+                        if (!dither_keep_pixel(pxX, pxY, visibility, pixelSize)) {
+                            continue;
+                        }
+                        SDL_RenderFillRect(renderer, &px);
+                    }
+                }
+            }
+        }
+    }
+}
+
 static void draw_digit_7seg(SDL_Renderer *renderer, int x, int y, int digit, int scale, SDL_Color color) {
     static const uint8_t DIGIT_MASK[10] = {
         0x3F, 0x06, 0x5B, 0x4F, 0x66,
@@ -1598,41 +1677,60 @@ static void render_game(
     SDL_SetRenderDrawColor(renderer, 21, 48, 70, 255);
     SDL_RenderFillRect(renderer, &court);
 
-    {
-        SDL_Rect banner = {(WINDOW_WIDTH - 392) / 2, 164, 392, 58};
+    if (scene != SCENE_PLAYING || game->startBannerFade > 0.0f) {
+        SDL_Rect banner = {(WINDOW_WIDTH - 520) / 2, 164, 520, 58};
         int tipW = 24;
         int midY = banner.y + banner.h / 2;
+        float fade = 1.0f;
+        float visibility = 1.0f;
+        int fadePixelSize = 2;
         const char *bannerLabel = "VOLLEY ARCADE";
         int textScale = 3;
         int textWidth = ((int)strlen(bannerLabel) * 6 - 1) * textScale;
         int textHeight = 7 * textScale;
         int textX = banner.x + (banner.w - textWidth) / 2;
         int textY = banner.y + (banner.h - textHeight) / 2;
-        SDL_Color bannerText = {250, 238, 170, 255};
-        SDL_Color bannerShadow = {24, 44, 66, 255};
+        SDL_Color bannerText;
+        SDL_Color bannerShadow;
+        SDL_Color bannerBase = {24, 86, 122, 255};
+        SDL_Color wallColor = {21, 48, 70, 255};
+        SDL_Color borderColor = {236, 196, 106, 255};
 
-        SDL_SetRenderDrawColor(renderer, 24, 86, 122, 255);
-        SDL_RenderFillRect(renderer, &banner);
-
-        for (int y = 0; y < banner.h; ++y) {
-            int dy = abs(y - banner.h / 2);
-            int inset = (dy * tipW) / (banner.h / 2);
-            int lx = banner.x - tipW + inset;
-            int rx = banner.x + banner.w + tipW - inset;
-
-            SDL_RenderDrawLine(renderer, lx, banner.y + y, banner.x - 1, banner.y + y);
-            SDL_RenderDrawLine(renderer, banner.x + banner.w, banner.y + y, rx, banner.y + y);
+        if (scene == SCENE_PLAYING) {
+            fade = clampf(game->startBannerFade / START_BANNER_FADE_TIME, 0.0f, 1.0f);
+            visibility = fade;
         }
 
-        SDL_SetRenderDrawColor(renderer, 236, 196, 106, 255);
-        SDL_RenderDrawRect(renderer, &banner);
-        SDL_RenderDrawLine(renderer, banner.x - tipW, midY, banner.x, banner.y);
-        SDL_RenderDrawLine(renderer, banner.x - tipW, midY, banner.x, banner.y + banner.h - 1);
-        SDL_RenderDrawLine(renderer, banner.x + banner.w + tipW, midY, banner.x + banner.w - 1, banner.y);
-        SDL_RenderDrawLine(renderer, banner.x + banner.w + tipW, midY, banner.x + banner.w - 1, banner.y + banner.h - 1);
+        bannerText = (SDL_Color){250, 238, 170, 255};
+        bannerShadow = (SDL_Color){24, 44, 66, 255};
 
-        draw_text_5x7(renderer, textX + 1, textY + 1, bannerLabel, textScale, bannerShadow);
-        draw_text_5x7(renderer, textX, textY, bannerLabel, textScale, bannerText);
+        draw_dithered_fill_rect(renderer, banner, bannerBase, visibility, fadePixelSize);
+
+        /* Cut inward arrow notches so the tips point into the banner. */
+        SDL_SetRenderDrawColor(renderer, wallColor.r, wallColor.g, wallColor.b, wallColor.a);
+        for (int y = 0; y < banner.h; ++y) {
+            int dy = abs(y - banner.h / 2);
+            int depth = tipW - (dy * tipW) / (banner.h / 2);
+            int leftEnd = banner.x + depth;
+            int rightStart = banner.x + banner.w - 1 - depth;
+
+            SDL_RenderDrawLine(renderer, banner.x, banner.y + y, leftEnd, banner.y + y);
+            SDL_RenderDrawLine(renderer, rightStart, banner.y + y, banner.x + banner.w - 1, banner.y + y);
+        }
+
+        draw_dithered_fill_rect(renderer, (SDL_Rect){banner.x, banner.y, banner.w, 1}, borderColor, visibility, fadePixelSize);
+        draw_dithered_fill_rect(renderer, (SDL_Rect){banner.x, banner.y + banner.h - 1, banner.w, 1}, borderColor, visibility, fadePixelSize);
+        for (int i = 0; i <= tipW; ++i) {
+            int yA = banner.y + (i * (midY - banner.y)) / tipW;
+            int yB = banner.y + banner.h - 1 - (i * (banner.y + banner.h - 1 - midY)) / tipW;
+            draw_dithered_fill_rect(renderer, (SDL_Rect){banner.x + i, yA, 1, 1}, borderColor, visibility, fadePixelSize);
+            draw_dithered_fill_rect(renderer, (SDL_Rect){banner.x + i, yB, 1, 1}, borderColor, visibility, fadePixelSize);
+            draw_dithered_fill_rect(renderer, (SDL_Rect){banner.x + banner.w - 1 - i, yA, 1, 1}, borderColor, visibility, fadePixelSize);
+            draw_dithered_fill_rect(renderer, (SDL_Rect){banner.x + banner.w - 1 - i, yB, 1, 1}, borderColor, visibility, fadePixelSize);
+        }
+
+        draw_text_5x7_dithered(renderer, textX + 1, textY + 1, bannerLabel, textScale, bannerShadow, visibility, fadePixelSize);
+        draw_text_5x7_dithered(renderer, textX, textY, bannerLabel, textScale, bannerText, visibility, fadePixelSize);
     }
 
     SDL_SetRenderDrawColor(renderer, 224, 196, 122, 255);
@@ -1873,6 +1971,8 @@ int main(void) {
         SDL_Quit();
         return 1;
     }
+
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
 
     bool startTwoPlayer = false;
     int startDifficulty = 1;
