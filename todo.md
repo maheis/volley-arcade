@@ -28,7 +28,7 @@
 [x] ball soll vor der punktetafel fliegen
 [ ] publikum zeichne
 [ ] schiri zeichnen
-[ ] schiri pfeifen bei punkten
+[x] schiri pfeifen bei punkten
 [ ] schiri anzeigen ob in / out
 [x] neuer name Volley-Arcade
 [ ] schwierigkeitsgrade prüfen, schwer schlägt aktuell immer nur drüber.
@@ -36,3 +36,4 @@
 [x] bode in sandgelb und 3px dick
 [x] volley-arcade als banner hinten an die hallen wand
 [x] blocksprung vs. pritschen
+[ ] wandabpraller konfigurierbar

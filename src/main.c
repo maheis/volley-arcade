@@ -393,7 +393,8 @@ static void play_events(Audio *audio, unsigned events) {
         queue_tone(audio, 170.0f, 100, 1.0f);
     }
     if (events & EVENT_POINT) {
-        queue_tone(audio, 760.0f, 70, 0.85f);
+        queue_tone(audio, 2200.0f, 65, 0.95f);
+        queue_tone(audio, 1920.0f, 70, 0.88f);
     }
 }
 
@@ -824,10 +825,11 @@ static void register_ball_touch(Game *game) {
 }
 
 static void award_point(Game *game, bool playerWon, unsigned *events) {
+    *events |= EVENT_POINT;
+
     if (playerWon) {
         game->playerPoints += 1;
         game->serverSide = -1;
-        *events |= EVENT_POINT;
     } else {
         game->cpuPoints += 1;
         game->serverSide = 1;
