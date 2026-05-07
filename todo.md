@@ -28,8 +28,8 @@
 [x] ball soll vor der punktetafel fliegen
 [ ] publikum zeichne
 [ ] schiri zeichnen
-[x] schiri pfeifen bei punkten
 [ ] schiri anzeigen ob in / out
+[x] schiri pfeifen bei punkten
 [x] neuer name Volley-Arcade
 [x] spielfeld weiter runter
 [x] bode in sandgelb und 3px dick
