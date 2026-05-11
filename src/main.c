@@ -552,6 +552,79 @@ static void queue_tone(Audio *audio, float frequency, int durationMs, float volu
     free(buffer);
 }
 
+static void queue_whistle(Audio *audio, int durationMs, float volumeScale)
+{
+    if (audio->device == 0)
+    {
+        return;
+    }
+
+    int samples = (AUDIO_SAMPLE_RATE * durationMs) / 1000;
+    if (samples <= 0)
+    {
+        return;
+    }
+
+    int16_t *buffer = (int16_t *)malloc((size_t)samples * sizeof(int16_t));
+    if (!buffer)
+    {
+        return;
+    }
+
+    float phaseMain = 0.0f;
+    float phaseHarm = 0.0f;
+    float phaseAir = 0.0f;
+    float amp = (float)AUDIO_AMPLITUDE * volumeScale;
+
+    for (int i = 0; i < samples; ++i)
+    {
+        float t = (float)i / (float)AUDIO_SAMPLE_RATE;
+        float norm = (float)i / (float)samples;
+        float attack = clampf(norm / 0.08f, 0.0f, 1.0f);
+        float release = clampf((1.0f - norm) / 0.25f, 0.0f, 1.0f);
+        float envelope = attack * release;
+        float vibrato = sinf(2.0f * 3.14159265f * 9.0f * t);
+        float freq = 2150.0f + 140.0f * vibrato;
+        float stepMain = freq / (float)AUDIO_SAMPLE_RATE;
+        float stepHarm = (freq * 2.0f) / (float)AUDIO_SAMPLE_RATE;
+        float stepAir = 4800.0f / (float)AUDIO_SAMPLE_RATE;
+        float main = sinf(2.0f * 3.14159265f * phaseMain);
+        float harm = sinf(2.0f * 3.14159265f * phaseHarm);
+        float air = sinf(2.0f * 3.14159265f * phaseAir + 1.7f * phaseMain);
+        float sample = (main * 0.78f + harm * 0.16f + air * 0.06f) * amp * envelope;
+
+        if (sample > 32767.0f)
+        {
+            sample = 32767.0f;
+        }
+        else if (sample < -32768.0f)
+        {
+            sample = -32768.0f;
+        }
+        buffer[i] = (int16_t)sample;
+
+        phaseMain += stepMain;
+        phaseHarm += stepHarm;
+        phaseAir += stepAir;
+
+        if (phaseMain >= 1.0f)
+        {
+            phaseMain -= 1.0f;
+        }
+        if (phaseHarm >= 1.0f)
+        {
+            phaseHarm -= 1.0f;
+        }
+        if (phaseAir >= 1.0f)
+        {
+            phaseAir -= 1.0f;
+        }
+    }
+
+    SDL_QueueAudio(audio->device, buffer, (Uint32)((size_t)samples * sizeof(int16_t)));
+    free(buffer);
+}
+
 static void play_events(Audio *audio, unsigned events)
 {
     if (audio->muted)
@@ -582,8 +655,7 @@ static void play_events(Audio *audio, unsigned events)
     }
     if (events & EVENT_POINT)
     {
-        queue_tone(audio, 2200.0f, 65, 0.95f);
-        queue_tone(audio, 1920.0f, 70, 0.88f);
+        queue_whistle(audio, 160, 1.35f);
     }
 }
 
