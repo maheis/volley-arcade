@@ -50,7 +50,7 @@ make run
 ## Steuerung
 
 - Startmenue: `UP` 1 Spieler, `DOWN` 2 Spieler, `LEFT/RIGHT` Schwierigkeit, `SPACE` Sound an/aus, `ENTER` starten
-- Spieler 1 (Singleplayer): `A/D` oder `LEFT/RIGHT` laufen, `W` oder `UP` springen/blocken, `LEFT CTRL` (oder `RIGHT CTRL`) Aufschlag halten/loslassen
+- Spieler 1 (Singleplayer): `A/D` oder `LEFT/RIGHT` laufen, `W` oder `UP` oder `SPACE` springen/blocken, `LEFT CTRL` (oder `RIGHT CTRL`) Aufschlag halten/loslassen
 - Spieler 2 (2-Spieler-Modus): `LEFT` links, `UP` springen/blocken, `RIGHT` rechts, `ALT GR` Aufschlag halten/loslassen
 - nur Singleplayer: Top-7-Highscores werden im Startmenue angezeigt
 - nur Singleplayer: bei Game Over oder Verlassen im Match wird ein Name fuer den Eintrag abgefragt

@@ -59,17 +59,20 @@
 #define HIGHSCORE_REL_DIR "volley-arcade"
 #define HIGHSCORE_FILENAME "highscores.dat"
 
-typedef struct Vec2 {
+typedef struct Vec2
+{
     float x;
     float y;
 } Vec2;
 
-typedef struct Ball {
+typedef struct Ball
+{
     Vec2 pos;
     Vec2 vel;
 } Ball;
 
-typedef struct Player {
+typedef struct Player
+{
     float x;
     float y;
     float vy;
@@ -79,13 +82,15 @@ typedef struct Player {
     float blockTimer;
 } Player;
 
-typedef struct Audio {
+typedef struct Audio
+{
     SDL_AudioDeviceID device;
     SDL_AudioSpec spec;
     bool muted;
 } Audio;
 
-typedef struct HighscoreEntry {
+typedef struct HighscoreEntry
+{
     char name[HIGHSCORE_NAME_LEN + 1];
     int setsFor;
     int setsAgainst;
@@ -93,7 +98,8 @@ typedef struct HighscoreEntry {
     int pointsAgainst;
 } HighscoreEntry;
 
-typedef enum Scene {
+typedef enum Scene
+{
     SCENE_START = 0,
     SCENE_PLAYING = 1,
     SCENE_PAUSED = 2,
@@ -101,7 +107,8 @@ typedef enum Scene {
     SCENE_NAME_ENTRY = 4
 } Scene;
 
-enum GameEvent {
+enum GameEvent
+{
     EVENT_NONE = 0,
     EVENT_WALL_BOUNCE = 1 << 0,
     EVENT_BLOCK_SUCCESS = 1 << 1,
@@ -112,7 +119,8 @@ enum GameEvent {
     EVENT_GAME_OVER = 1 << 6
 };
 
-typedef struct Game {
+typedef struct Game
+{
     Ball ball;
     Player player;
     Player cpu;
@@ -148,30 +156,37 @@ typedef struct Game {
 
 static void draw_filled_circle(SDL_Renderer *renderer, int cx, int cy, int radius);
 
-static float clampf(float value, float min, float max) {
-    if (value < min) {
+static float clampf(float value, float min, float max)
+{
+    if (value < min)
+    {
         return min;
     }
-    if (value > max) {
+    if (value > max)
+    {
         return max;
     }
     return value;
 }
 
-static void get_highscore_dir_path(char *out, size_t outSize) {
+static void get_highscore_dir_path(char *out, size_t outSize)
+{
     const char *xdgConfigHome = getenv("XDG_CONFIG_HOME");
     const char *home = getenv("HOME");
 
-    if (outSize == 0) {
+    if (outSize == 0)
+    {
         return;
     }
 
-    if (xdgConfigHome && xdgConfigHome[0] != '\0') {
+    if (xdgConfigHome && xdgConfigHome[0] != '\0')
+    {
         snprintf(out, outSize, "%s/%s", xdgConfigHome, HIGHSCORE_REL_DIR);
         return;
     }
 
-    if (home && home[0] != '\0') {
+    if (home && home[0] != '\0')
+    {
         snprintf(out, outSize, "%s/.config/%s", home, HIGHSCORE_REL_DIR);
         return;
     }
@@ -179,15 +194,18 @@ static void get_highscore_dir_path(char *out, size_t outSize) {
     out[0] = '\0';
 }
 
-static void get_highscore_file_path(char *out, size_t outSize) {
+static void get_highscore_file_path(char *out, size_t outSize)
+{
     char dirPath[512];
 
-    if (outSize == 0) {
+    if (outSize == 0)
+    {
         return;
     }
 
     get_highscore_dir_path(dirPath, sizeof(dirPath));
-    if (dirPath[0] == '\0') {
+    if (dirPath[0] == '\0')
+    {
         snprintf(out, outSize, "%s", HIGHSCORE_FILENAME);
         return;
     }
@@ -195,23 +213,28 @@ static void get_highscore_file_path(char *out, size_t outSize) {
     snprintf(out, outSize, "%s/%s", dirPath, HIGHSCORE_FILENAME);
 }
 
-static void ensure_directory_recursive(const char *path) {
+static void ensure_directory_recursive(const char *path)
+{
     char tmp[512];
     size_t len;
 
-    if (!path || path[0] == '\0') {
+    if (!path || path[0] == '\0')
+    {
         return;
     }
 
     len = strlen(path);
-    if (len == 0 || len >= sizeof(tmp)) {
+    if (len == 0 || len >= sizeof(tmp))
+    {
         return;
     }
 
     snprintf(tmp, sizeof(tmp), "%s", path);
 
-    for (char *p = tmp + 1; *p != '\0'; ++p) {
-        if (*p == '/') {
+    for (char *p = tmp + 1; *p != '\0'; ++p)
+    {
+        if (*p == '/')
+        {
             *p = '\0';
             (void)mkdir(tmp, 0700);
             *p = '/';
@@ -221,48 +244,62 @@ static void ensure_directory_recursive(const char *path) {
     (void)mkdir(tmp, 0700);
 }
 
-static void ensure_highscore_directory(void) {
+static void ensure_highscore_directory(void)
+{
     char dirPath[512];
     get_highscore_dir_path(dirPath, sizeof(dirPath));
     ensure_directory_recursive(dirPath);
 }
 
-static int load_highscores(HighscoreEntry *entries, int maxEntries) {
+static int load_highscores(HighscoreEntry *entries, int maxEntries)
+{
     char path[640];
     get_highscore_file_path(path, sizeof(path));
     FILE *f = fopen(path, "r");
     int count = 0;
 
-    if (!f) {
+    if (!f)
+    {
         return 0;
     }
 
-    while (count < maxEntries) {
+    while (count < maxEntries)
+    {
         HighscoreEntry e;
         int parsed = fscanf(f, "%10s %d %d %d %d", e.name, &e.setsFor, &e.setsAgainst, &e.pointsFor, &e.pointsAgainst);
-        if (parsed < 2) {
+        if (parsed < 2)
+        {
             break;
         }
-        if (parsed == 2) {
+        if (parsed == 2)
+        {
             e.setsAgainst = 0;
             e.pointsFor = 0;
             e.pointsAgainst = 0;
-        } else if (parsed == 3) {
+        }
+        else if (parsed == 3)
+        {
             e.setsAgainst = 0;
             e.pointsAgainst = 0;
-        } else if (parsed == 4) {
+        }
+        else if (parsed == 4)
+        {
             e.pointsAgainst = 0;
         }
-        if (e.setsFor < 0) {
+        if (e.setsFor < 0)
+        {
             e.setsFor = 0;
         }
-        if (e.setsAgainst < 0) {
+        if (e.setsAgainst < 0)
+        {
             e.setsAgainst = 0;
         }
-        if (e.pointsFor < 0) {
+        if (e.pointsFor < 0)
+        {
             e.pointsFor = 0;
         }
-        if (e.pointsAgainst < 0) {
+        if (e.pointsAgainst < 0)
+        {
             e.pointsAgainst = 0;
         }
         entries[count++] = e;
@@ -272,18 +309,21 @@ static int load_highscores(HighscoreEntry *entries, int maxEntries) {
     return count;
 }
 
-static void save_highscores(const HighscoreEntry *entries, int count) {
+static void save_highscores(const HighscoreEntry *entries, int count)
+{
     char path[640];
 
     ensure_highscore_directory();
     get_highscore_file_path(path, sizeof(path));
 
     FILE *f = fopen(path, "w");
-    if (!f) {
+    if (!f)
+    {
         return;
     }
 
-    for (int i = 0; i < count; ++i) {
+    for (int i = 0; i < count; ++i)
+    {
         fprintf(
             f,
             "%s %d %d %d %d\n",
@@ -291,8 +331,7 @@ static void save_highscores(const HighscoreEntry *entries, int count) {
             entries[i].setsFor,
             entries[i].setsAgainst,
             entries[i].pointsFor,
-            entries[i].pointsAgainst
-        );
+            entries[i].pointsAgainst);
     }
     fclose(f);
 }
@@ -302,20 +341,23 @@ static bool highscore_better_than(
     int setsAgainst,
     int pointsFor,
     int pointsAgainst,
-    const HighscoreEntry *entry
-) {
+    const HighscoreEntry *entry)
+{
     int setDiff = setsFor - setsAgainst;
     int entrySetDiff = entry->setsFor - entry->setsAgainst;
     int pointDiff = pointsFor - pointsAgainst;
     int entryPointDiff = entry->pointsFor - entry->pointsAgainst;
 
-    if (setsFor != entry->setsFor) {
+    if (setsFor != entry->setsFor)
+    {
         return setsFor > entry->setsFor;
     }
-    if (setDiff != entrySetDiff) {
+    if (setDiff != entrySetDiff)
+    {
         return setDiff > entrySetDiff;
     }
-    if (pointsFor != entry->pointsFor) {
+    if (pointsFor != entry->pointsFor)
+    {
         return pointsFor > entry->pointsFor;
     }
     return pointDiff > entryPointDiff;
@@ -328,48 +370,60 @@ static void insert_highscore(
     int setsFor,
     int setsAgainst,
     int pointsFor,
-    int pointsAgainst
-) {
+    int pointsAgainst)
+{
     int n = *count;
-    if (setsFor < 0) {
+    if (setsFor < 0)
+    {
         setsFor = 0;
     }
-    if (setsAgainst < 0) {
+    if (setsAgainst < 0)
+    {
         setsAgainst = 0;
     }
-    if (pointsFor < 0) {
+    if (pointsFor < 0)
+    {
         pointsFor = 0;
     }
-    if (pointsAgainst < 0) {
+    if (pointsAgainst < 0)
+    {
         pointsAgainst = 0;
     }
 
-    if (n < MAX_HIGHSCORES) {
+    if (n < MAX_HIGHSCORES)
+    {
         entries[n].setsFor = setsFor;
         entries[n].setsAgainst = setsAgainst;
         entries[n].pointsFor = pointsFor;
         entries[n].pointsAgainst = pointsAgainst;
         snprintf(entries[n].name, sizeof(entries[n].name), "%s", name);
         n += 1;
-    } else if (highscore_better_than(setsFor, setsAgainst, pointsFor, pointsAgainst, &entries[n - 1])) {
+    }
+    else if (highscore_better_than(setsFor, setsAgainst, pointsFor, pointsAgainst, &entries[n - 1]))
+    {
         entries[n - 1].setsFor = setsFor;
         entries[n - 1].setsAgainst = setsAgainst;
         entries[n - 1].pointsFor = pointsFor;
         entries[n - 1].pointsAgainst = pointsAgainst;
         snprintf(entries[n - 1].name, sizeof(entries[n - 1].name), "%s", name);
-    } else {
+    }
+    else
+    {
         *count = n;
         return;
     }
 
-    for (int i = 0; i < n; ++i) {
-        for (int j = i + 1; j < n; ++j) {
+    for (int i = 0; i < n; ++i)
+    {
+        for (int j = i + 1; j < n; ++j)
+        {
             if (highscore_better_than(
                     entries[j].setsFor,
                     entries[j].setsAgainst,
                     entries[j].pointsFor,
                     entries[j].pointsAgainst,
-                    &entries[i])) {
+                    &entries[i]))
+            {
                 HighscoreEntry tmp = entries[i];
                 entries[i] = entries[j];
                 entries[j] = tmp;
@@ -377,28 +431,35 @@ static void insert_highscore(
         }
     }
 
-    if (n > MAX_HIGHSCORES) {
+    if (n > MAX_HIGHSCORES)
+    {
         n = MAX_HIGHSCORES;
     }
     *count = n;
 }
 
-static char scancode_to_name_char(SDL_Scancode sc) {
-    if (sc >= SDL_SCANCODE_A && sc <= SDL_SCANCODE_Z) {
+static char scancode_to_name_char(SDL_Scancode sc)
+{
+    if (sc >= SDL_SCANCODE_A && sc <= SDL_SCANCODE_Z)
+    {
         return (char)('A' + (sc - SDL_SCANCODE_A));
     }
-    if (sc >= SDL_SCANCODE_1 && sc <= SDL_SCANCODE_9) {
+    if (sc >= SDL_SCANCODE_1 && sc <= SDL_SCANCODE_9)
+    {
         return (char)('1' + (sc - SDL_SCANCODE_1));
     }
-    if (sc == SDL_SCANCODE_0) {
+    if (sc == SDL_SCANCODE_0)
+    {
         return '0';
     }
     return '\0';
 }
 
-static void refresh_difficulty(Game *game) {
+static void refresh_difficulty(Game *game)
+{
     int level = 1 + (int)(game->elapsedSeconds / 60.0f);
-    if (level > 8) {
+    if (level > 8)
+    {
         level = 8;
     }
 
@@ -411,18 +472,22 @@ static void refresh_difficulty(Game *game) {
     }
 }
 
-static void queue_tone(Audio *audio, float frequency, int durationMs, float volumeScale) {
-    if (audio->device == 0) {
+static void queue_tone(Audio *audio, float frequency, int durationMs, float volumeScale)
+{
+    if (audio->device == 0)
+    {
         return;
     }
 
     int samples = (AUDIO_SAMPLE_RATE * durationMs) / 1000;
-    if (samples <= 0) {
+    if (samples <= 0)
+    {
         return;
     }
 
     int16_t *buffer = (int16_t *)malloc((size_t)samples * sizeof(int16_t));
-    if (!buffer) {
+    if (!buffer)
+    {
         return;
     }
 
@@ -430,12 +495,14 @@ static void queue_tone(Audio *audio, float frequency, int durationMs, float volu
     float step = frequency / (float)AUDIO_SAMPLE_RATE;
     float amp = (float)AUDIO_AMPLITUDE * volumeScale;
 
-    for (int i = 0; i < samples; ++i) {
+    for (int i = 0; i < samples; ++i)
+    {
         float env = 1.0f - ((float)i / (float)samples);
         float sample = (phase < 0.5f ? 1.0f : -1.0f) * amp * env;
         buffer[i] = (int16_t)sample;
         phase += step;
-        if (phase >= 1.0f) {
+        if (phase >= 1.0f)
+        {
             phase -= 1.0f;
         }
     }
@@ -444,34 +511,43 @@ static void queue_tone(Audio *audio, float frequency, int durationMs, float volu
     free(buffer);
 }
 
-static void play_events(Audio *audio, unsigned events) {
-    if (audio->muted) {
+static void play_events(Audio *audio, unsigned events)
+{
+    if (audio->muted)
+    {
         return;
     }
 
-    if (events & EVENT_BLOCK_SUCCESS) {
+    if (events & EVENT_BLOCK_SUCCESS)
+    {
         queue_tone(audio, 880.0f, 55, 1.0f);
         queue_tone(audio, 1040.0f, 45, 0.9f);
     }
-    if (events & EVENT_CPU_RETURN) {
+    if (events & EVENT_CPU_RETURN)
+    {
         queue_tone(audio, 660.0f, 45, 0.75f);
     }
-    if (events & EVENT_PLAYER_RECEIVE) {
+    if (events & EVENT_PLAYER_RECEIVE)
+    {
         queue_tone(audio, 420.0f, 40, 0.65f);
     }
-    if (events & EVENT_WALL_BOUNCE) {
+    if (events & EVENT_WALL_BOUNCE)
+    {
         queue_tone(audio, 320.0f, 20, 0.5f);
     }
-    if (events & EVENT_MISS) {
+    if (events & EVENT_MISS)
+    {
         queue_tone(audio, 170.0f, 100, 1.0f);
     }
-    if (events & EVENT_POINT) {
+    if (events & EVENT_POINT)
+    {
         queue_tone(audio, 2200.0f, 65, 0.95f);
         queue_tone(audio, 1920.0f, 70, 0.88f);
     }
 }
 
-static float point_segment_distance_sq(float px, float py, float ax, float ay, float bx, float by) {
+static float point_segment_distance_sq(float px, float py, float ax, float ay, float bx, float by)
+{
     float abx = bx - ax;
     float aby = by - ay;
     float apx = px - ax;
@@ -479,7 +555,8 @@ static float point_segment_distance_sq(float px, float py, float ax, float ay, f
     float abLen2 = abx * abx + aby * aby;
     float t;
 
-    if (abLen2 <= 0.0001f) {
+    if (abLen2 <= 0.0001f)
+    {
         float dx = px - ax;
         float dy = py - ay;
         return dx * dx + dy * dy;
@@ -506,25 +583,31 @@ static void compute_arm_pose(
     float *shoulderX,
     float *shoulderY,
     float *handX,
-    float *handY
-) {
+    float *handY)
+{
     float dir = towardRight ? 1.0f : -1.0f;
     float sx = bodyX + PLAYER_W * 0.5f + dir * 3.0f;
     float sy = bodyY + 50.0f;
     float hx;
     float hy;
 
-    if (armsUp) {
-        if (nearNet) {
+    if (armsUp)
+    {
+        if (nearNet)
+        {
             /* Blocksprung at the net: hands fully extended above the head. */
             hx = sx + dir * 4.0f;
             hy = sy - 100.0f;
-        } else {
+        }
+        else
+        {
             /* Pritschen farther back: raised, but not full block reach. */
             hx = sx + dir * 16.0f;
             hy = sy - 72.0f;
         }
-    } else {
+    }
+    else
+    {
         hx = sx + dir * 34.0f;
         hy = sy + 36.0f;
     }
@@ -535,8 +618,10 @@ static void compute_arm_pose(
     *handY = hy;
 }
 
-static void draw_rotated_filled_ellipse(SDL_Renderer *renderer, int cx, int cy, int rx, int ry, float angleRad) {
-    if (rx <= 0 || ry <= 0) {
+static void draw_rotated_filled_ellipse(SDL_Renderer *renderer, int cx, int cy, int rx, int ry, float angleRad)
+{
+    if (rx <= 0 || ry <= 0)
+    {
         return;
     }
 
@@ -547,12 +632,15 @@ static void draw_rotated_filled_ellipse(SDL_Renderer *renderer, int cx, int cy, 
         float invRx2 = 1.0f / ((float)rx * (float)rx);
         float invRy2 = 1.0f / ((float)ry * (float)ry);
 
-        for (int dy = -r; dy <= r; ++dy) {
-            for (int dx = -r; dx <= r; ++dx) {
+        for (int dy = -r; dy <= r; ++dy)
+        {
+            for (int dx = -r; dx <= r; ++dx)
+            {
                 float ux = c * (float)dx + s * (float)dy;
                 float uy = -s * (float)dx + c * (float)dy;
                 float eq = ux * ux * invRx2 + uy * uy * invRy2;
-                if (eq <= 1.0f) {
+                if (eq <= 1.0f)
+                {
                     SDL_RenderDrawPoint(renderer, cx + dx, cy + dy);
                 }
             }
@@ -560,24 +648,28 @@ static void draw_rotated_filled_ellipse(SDL_Renderer *renderer, int cx, int cy, 
     }
 }
 
-static void draw_thick_segment(SDL_Renderer *renderer, float ax, float ay, float bx, float by, int thickness) {
+static void draw_thick_segment(SDL_Renderer *renderer, float ax, float ay, float bx, float by, int thickness)
+{
     float dx = bx - ax;
     float dy = by - ay;
     float len = sqrtf(dx * dx + dy * dy);
     int radius = thickness / 2;
     int steps;
 
-    if (len < 0.001f) {
+    if (len < 0.001f)
+    {
         draw_filled_circle(renderer, (int)ax, (int)ay, radius);
         return;
     }
 
     steps = (int)len;
-    if (steps < 1) {
+    if (steps < 1)
+    {
         steps = 1;
     }
 
-    for (int i = 0; i <= steps; ++i) {
+    for (int i = 0; i <= steps; ++i)
+    {
         float t = (float)i / (float)steps;
         float px = ax + dx * t;
         float py = ay + dy * t;
@@ -593,8 +685,8 @@ static void draw_arm_with_hand(
     float handY,
     bool towardRight,
     SDL_Color armColor,
-    SDL_Color handColor
-) {
+    SDL_Color handColor)
+{
     float armAngle = atan2f(handY - shoulderY, handX - shoulderX);
     float handAngle = armAngle + (towardRight ? 0.4363323f : -0.4363323f);
     float handCx = handX + cosf(armAngle) * 4.0f;
@@ -607,12 +699,14 @@ static void draw_arm_with_hand(
     draw_rotated_filled_ellipse(renderer, (int)handCx, (int)handCy, HAND_OVAL_RX, HAND_OVAL_RY, handAngle);
 }
 
-static bool reflect_ball_on_head_zone(Ball *ball, float prevX, float prevY, float headX, float headY, bool towardRight, float hitterVy, bool hitterOnGround) {
+static bool reflect_ball_on_head_zone(Ball *ball, float prevX, float prevY, float headX, float headY, bool towardRight, float hitterVy, bool hitterOnGround)
+{
     float sumR = BALL_RADIUS + HEAD_RADIUS;
     float sumR2 = sumR * sumR;
     float dist2 = point_segment_distance_sq(headX, headY, prevX, prevY, ball->pos.x, ball->pos.y);
 
-    if (dist2 > sumR2) {
+    if (dist2 > sumR2)
+    {
         return false;
     }
 
@@ -622,11 +716,14 @@ static bool reflect_ball_on_head_zone(Ball *ball, float prevX, float prevY, floa
         float nLen2 = nx * nx + ny * ny;
         float nLen;
 
-        if (nLen2 < 0.0001f) {
+        if (nLen2 < 0.0001f)
+        {
             nx = towardRight ? 1.0f : -1.0f;
             ny = -0.1f;
             nLen = sqrtf(nx * nx + ny * ny);
-        } else {
+        }
+        else
+        {
             nLen = sqrtf(nLen2);
         }
 
@@ -655,7 +752,8 @@ static bool reflect_ball_on_head_zone(Ball *ball, float prevX, float prevY, floa
 
         /* Airborne contacts are stronger; rising jump gives an extra punch. */
         jumpBoost = 1.0f;
-        if (!hitterOnGround) {
+        if (!hitterOnGround)
+        {
             upwardFactor = clampf((-hitterVy) / 520.0f, 0.0f, 1.0f);
             jumpBoost = 1.12f + 0.18f * upwardFactor;
             vxMag *= jumpBoost;
@@ -665,9 +763,12 @@ static bool reflect_ball_on_head_zone(Ball *ball, float prevX, float prevY, floa
         /* Rear quarter of the head sends the ball backwards. */
         backHeadHit = frontness < 0.25f;
 
-        if (backHeadHit) {
+        if (backHeadHit)
+        {
             ball->vel.x = towardRight ? -vxMag : vxMag;
-        } else {
+        }
+        else
+        {
             ball->vel.x = towardRight ? vxMag : -vxMag;
         }
         ball->vel.y = -vyMag;
@@ -676,12 +777,14 @@ static bool reflect_ball_on_head_zone(Ball *ball, float prevX, float prevY, floa
     return true;
 }
 
-static bool reflect_ball_on_hand_zone(Ball *ball, float prevX, float prevY, float handX, float handY, bool towardRight, float hitterVy, bool hitterOnGround) {
+static bool reflect_ball_on_hand_zone(Ball *ball, float prevX, float prevY, float handX, float handY, bool towardRight, float hitterVy, bool hitterOnGround)
+{
     float sumR = BALL_RADIUS + HAND_HIT_RADIUS;
     float sumR2 = sumR * sumR;
     float dist2 = point_segment_distance_sq(handX, handY, prevX, prevY, ball->pos.x, ball->pos.y);
 
-    if (dist2 > sumR2) {
+    if (dist2 > sumR2)
+    {
         return false;
     }
 
@@ -691,11 +794,14 @@ static bool reflect_ball_on_hand_zone(Ball *ball, float prevX, float prevY, floa
         float nLen2 = nx * nx + ny * ny;
         float nLen;
 
-        if (nLen2 < 0.0001f) {
+        if (nLen2 < 0.0001f)
+        {
             nx = towardRight ? 1.0f : -1.0f;
             ny = -0.18f;
             nLen = sqrtf(nx * nx + ny * ny);
-        } else {
+        }
+        else
+        {
             nLen = sqrtf(nLen2);
         }
 
@@ -718,7 +824,8 @@ static bool reflect_ball_on_hand_zone(Ball *ball, float prevX, float prevY, floa
         vxMag = 240.0f + 210.0f * topHit;
         vyMag = 360.0f + 240.0f * topHit;
 
-        if (!hitterOnGround) {
+        if (!hitterOnGround)
+        {
             float upwardFactor = clampf((-hitterVy) / 560.0f, 0.0f, 1.0f);
             jumpBoost = 1.06f + 0.20f * upwardFactor;
             vxMag *= jumpBoost;
@@ -732,13 +839,17 @@ static bool reflect_ball_on_hand_zone(Ball *ball, float prevX, float prevY, floa
     return true;
 }
 
-static void place_ball_in_server_hand(Game *game) {
-    if (game->serverSide < 0) {
+static void place_ball_in_server_hand(Game *game)
+{
+    if (game->serverSide < 0)
+    {
         float hx = game->player.x + PLAYER_W * 0.5f;
         float hy = game->player.y;
         game->ball.pos.x = hx + HEAD_RADIUS + BALL_RADIUS - 3.0f;
         game->ball.pos.y = hy - (HEAD_RADIUS + BALL_RADIUS - 3.0f);
-    } else {
+    }
+    else
+    {
         float hx = game->cpu.x + PLAYER_W * 0.5f;
         float hy = game->cpu.y;
         game->ball.pos.x = hx - (HEAD_RADIUS + BALL_RADIUS - 3.0f);
@@ -748,13 +859,15 @@ static void place_ball_in_server_hand(Game *game) {
     game->ball.vel.y = 0.0f;
 }
 
-static void start_serve(Game *game, int side) {
+static void start_serve(Game *game, int side)
+{
     int v;
     float serveScale = 1.0f;
     float xScale = 1.0f;
     float yScale = 1.0f;
 
-    if (!game->waitingServe || game->serverSide != side) {
+    if (!game->waitingServe || game->serverSide != side)
+    {
         return;
     }
 
@@ -764,26 +877,36 @@ static void start_serve(Game *game, int side) {
     game->ballSide = side;
     game->lastTouchSide = side;
 
-    if (side < 0) {
+    if (side < 0)
+    {
         game->ball.vel.x = 360.0f;
         game->ball.vel.y = -430.0f;
-    } else {
+    }
+    else
+    {
         serveScale = clampf(game->cpuSpeedScale, 0.90f, 1.12f);
         xScale = 0.90f;
         yScale = 1.02f;
 
         /* Cycle through a few serve trajectories so CPU serves are varied and net-safe. */
         v = game->cpuServeVariant % 4;
-        if (v == 0) {
+        if (v == 0)
+        {
             game->ball.vel.x = -560.0f * serveScale * xScale;
             game->ball.vel.y = -430.0f * serveScale * yScale;
-        } else if (v == 1) {
+        }
+        else if (v == 1)
+        {
             game->ball.vel.x = -520.0f * serveScale * xScale;
             game->ball.vel.y = -500.0f * serveScale * yScale;
-        } else if (v == 2) {
+        }
+        else if (v == 2)
+        {
             game->ball.vel.x = -620.0f * serveScale * xScale;
             game->ball.vel.y = -390.0f * serveScale * yScale;
-        } else {
+        }
+        else
+        {
             game->ball.vel.x = -540.0f * serveScale * xScale;
             game->ball.vel.y = -460.0f * serveScale * yScale;
         }
@@ -798,7 +921,8 @@ static void start_serve(Game *game, int side) {
     game->serveOutOnMax = false;
 }
 
-static void start_human_charged_serve(Game *game, int side) {
+static void start_human_charged_serve(Game *game, int side)
+{
     float c;
     float jumpHeight;
     float jumpInfluence;
@@ -806,7 +930,8 @@ static void start_human_charged_serve(Game *game, int side) {
     float hitterVy;
     float vx;
 
-    if (!game->waitingServe || game->serverSide != side) {
+    if (!game->waitingServe || game->serverSide != side)
+    {
         return;
     }
 
@@ -818,19 +943,25 @@ static void start_human_charged_serve(Game *game, int side) {
     game->ballSide = side;
     game->lastTouchSide = side;
 
-    if (side < 0) {
+    if (side < 0)
+    {
         hitterY = game->player.y;
         hitterVy = game->player.vy;
-    } else {
+    }
+    else
+    {
         hitterY = game->cpu.y;
         hitterVy = game->cpu.vy;
     }
 
     game->serveOutOnMax = (c >= 0.999f);
-    if (game->serveOutOnMax) {
+    if (game->serveOutOnMax)
+    {
         game->ball.vel.x = (side < 0) ? 760.0f : -760.0f;
         game->ball.vel.y = -120.0f;
-    } else {
+    }
+    else
+    {
         jumpHeight = (FLOOR_Y - PLAYER_H) - hitterY;
         jumpInfluence = clampf(jumpHeight / 90.0f, 0.0f, 1.0f);
 
@@ -847,7 +978,8 @@ static void start_human_charged_serve(Game *game, int side) {
     game->serveCharge = 0.0f;
 }
 
-static void reset_rally(Game *game) {
+static void reset_rally(Game *game)
+{
     game->player.x = COURT_MIN_X + 40.0f;
     game->player.y = FLOOR_Y - PLAYER_H;
     game->player.vy = 0.0f;
@@ -882,70 +1014,87 @@ static void reset_rally(Game *game) {
     game->touchStartY = game->ball.pos.y;
 }
 
-static bool can_touch_ball(const Game *game) {
-    if (!game->touchGateActive) {
+static bool can_touch_ball(const Game *game)
+{
+    if (!game->touchGateActive)
+    {
         return true;
     }
     return game->touchTimer >= TOUCH_MIN_INTERVAL && game->touchRiseReached;
 }
 
-static bool should_rebound_on_back_wall(const Game *game, int wallSide, float ballY) {
+static bool should_rebound_on_back_wall(const Game *game, int wallSide, float ballY)
+{
     float courtTopY = 40.0f;
     float middleY = courtTopY + (FLOOR_Y - courtTopY) * 0.5f;
     float lowerQuarterY = FLOOR_Y - (FLOOR_Y - courtTopY) * 0.25f;
     bool ownSide = (game->lastTouchSide == wallSide);
     bool opponentSide = (game->lastTouchSide == -wallSide);
 
-    if (game->difficulty <= 0) {
+    if (game->difficulty <= 0)
+    {
         /* Easy: all back-wall contacts rebound, never out. */
         return true;
     }
 
-    if (game->difficulty >= 2) {
+    if (game->difficulty >= 2)
+    {
         /* Hard: no back-wall rebounds, always out. */
         return false;
     }
 
     /* Normal: own side rebounds only in upper half. */
-    if (ownSide && ballY < middleY) {
+    if (ownSide && ballY < middleY)
+    {
         return true;
     }
 
     /* Normal: opponent blasting into lower quarter is always out. */
-    if (opponentSide && ballY >= lowerQuarterY) {
+    if (opponentSide && ballY >= lowerQuarterY)
+    {
         return false;
     }
 
     return false;
 }
 
-static void register_ball_touch(Game *game) {
+static void register_ball_touch(Game *game)
+{
     game->touchGateActive = true;
     game->touchRiseReached = false;
     game->touchTimer = 0.0f;
     game->touchStartY = game->ball.pos.y;
 }
 
-static void award_point(Game *game, bool playerWon, unsigned *events) {
+static void award_point(Game *game, bool playerWon, unsigned *events)
+{
     *events |= EVENT_POINT;
 
-    if (playerWon) {
+    if (playerWon)
+    {
         game->playerPoints += 1;
         game->serverSide = -1;
-    } else {
+    }
+    else
+    {
         game->cpuPoints += 1;
         game->serverSide = 1;
         *events |= EVENT_MISS;
     }
 
     if ((game->playerPoints >= POINTS_TO_WIN_SET || game->cpuPoints >= POINTS_TO_WIN_SET) &&
-        abs(game->playerPoints - game->cpuPoints) >= MIN_LEAD_TO_WIN_SET) {
-        if (game->playerPoints > game->cpuPoints) {
+        abs(game->playerPoints - game->cpuPoints) >= MIN_LEAD_TO_WIN_SET)
+    {
+        if (game->playerPoints > game->cpuPoints)
+        {
             game->playerSets += 1;
-            if (game->playerSets > game->highscoreSets) {
+            if (game->playerSets > game->highscoreSets)
+            {
                 game->highscoreSets = game->playerSets;
             }
-        } else {
+        }
+        else
+        {
             game->cpuSets += 1;
         }
 
@@ -956,13 +1105,19 @@ static void award_point(Game *game, bool playerWon, unsigned *events) {
     reset_rally(game);
 }
 
-static void init_game(Game *game, bool twoPlayerMode, int difficulty) {
+static void init_game(Game *game, bool twoPlayerMode, int difficulty)
+{
     game->twoPlayerMode = twoPlayerMode;
-    if (difficulty < 0) {
+    if (difficulty < 0)
+    {
         game->difficulty = 0;
-    } else if (difficulty > 2) {
+    }
+    else if (difficulty > 2)
+    {
         game->difficulty = 2;
-    } else {
+    }
+    else
+    {
         game->difficulty = difficulty;
     }
     game->playerPoints = 0;
@@ -980,7 +1135,8 @@ static void init_game(Game *game, bool twoPlayerMode, int difficulty) {
     reset_rally(game);
 }
 
-static unsigned update_game(Game *game, float dt, const Uint8 *keys) {
+static unsigned update_game(Game *game, float dt, const Uint8 *keys)
+{
     unsigned events = EVENT_NONE;
     float aiFactor = 1.0f;
     bool shouldCpuBlock = false;
@@ -1004,9 +1160,11 @@ static unsigned update_game(Game *game, float dt, const Uint8 *keys) {
     float playerGravityScale;
     float rightGravityScale;
 
-    if (game->startBannerFade > 0.0f) {
+    if (game->startBannerFade > 0.0f)
+    {
         game->startBannerFade -= dt;
-        if (game->startBannerFade < 0.0f) {
+        if (game->startBannerFade < 0.0f)
+        {
             game->startBannerFade = 0.0f;
         }
     }
@@ -1014,25 +1172,33 @@ static unsigned update_game(Game *game, float dt, const Uint8 *keys) {
     game->elapsedSeconds += dt;
 
     game->touchTimer += dt;
-    if (game->touchGateActive && !game->touchRiseReached) {
-        if ((game->touchStartY - game->ball.pos.y) >= TOUCH_MIN_RISE_PX) {
+    if (game->touchGateActive && !game->touchRiseReached)
+    {
+        if ((game->touchStartY - game->ball.pos.y) >= TOUCH_MIN_RISE_PX)
+        {
             game->touchRiseReached = true;
         }
     }
     refresh_difficulty(game);
 
-    if (!game->waitingServe) {
-        if (keys[SDL_SCANCODE_A] || (!game->twoPlayerMode && keys[SDL_SCANCODE_LEFT])) {
+    if (!game->waitingServe)
+    {
+        if (keys[SDL_SCANCODE_A] || (!game->twoPlayerMode && keys[SDL_SCANCODE_LEFT]))
+        {
             game->player.x -= PLAYER_SPEED * dt;
         }
-        if (keys[SDL_SCANCODE_D] || (!game->twoPlayerMode && keys[SDL_SCANCODE_RIGHT])) {
+        if (keys[SDL_SCANCODE_D] || (!game->twoPlayerMode && keys[SDL_SCANCODE_RIGHT]))
+        {
             game->player.x += PLAYER_SPEED * dt;
         }
-        if (game->twoPlayerMode) {
-            if (keys[SDL_SCANCODE_LEFT]) {
+        if (game->twoPlayerMode)
+        {
+            if (keys[SDL_SCANCODE_LEFT])
+            {
                 game->cpu.x -= PLAYER_SPEED * dt;
             }
-            if (keys[SDL_SCANCODE_RIGHT]) {
+            if (keys[SDL_SCANCODE_RIGHT])
+            {
                 game->cpu.x += PLAYER_SPEED * dt;
             }
         }
@@ -1043,21 +1209,27 @@ static unsigned update_game(Game *game, float dt, const Uint8 *keys) {
 
     playerJumpHeld = keys[SDL_SCANCODE_W] || (!game->twoPlayerMode && keys[SDL_SCANCODE_UP]);
     playerGravityScale = 1.0f;
-    if (!game->player.onGround && game->player.vy < 0.0f) {
-        if (playerJumpHeld && game->player.jumpHoldTimer > 0.0f) {
+    if (!game->player.onGround && game->player.vy < 0.0f)
+    {
+        if (playerJumpHeld && game->player.jumpHoldTimer > 0.0f)
+        {
             playerGravityScale = PLAYER_JUMP_HOLD_GRAVITY_MULT;
             game->player.jumpHoldTimer -= dt;
-            if (game->player.jumpHoldTimer < 0.0f) {
+            if (game->player.jumpHoldTimer < 0.0f)
+            {
                 game->player.jumpHoldTimer = 0.0f;
             }
-        } else {
+        }
+        else
+        {
             playerGravityScale = PLAYER_JUMP_RELEASE_GRAVITY_MULT;
         }
     }
 
     game->player.vy += PLAYER_GRAVITY * playerGravityScale * dt;
     game->player.y += game->player.vy * dt;
-    if (game->player.y >= FLOOR_Y - PLAYER_H) {
+    if (game->player.y >= FLOOR_Y - PLAYER_H)
+    {
         game->player.y = FLOOR_Y - PLAYER_H;
         game->player.vy = 0.0f;
         game->player.jumpHoldTimer = 0.0f;
@@ -1066,21 +1238,27 @@ static unsigned update_game(Game *game, float dt, const Uint8 *keys) {
 
     rightJumpHeld = game->twoPlayerMode && keys[SDL_SCANCODE_UP];
     rightGravityScale = 1.0f;
-    if (game->twoPlayerMode && !game->cpu.onGround && game->cpu.vy < 0.0f) {
-        if (rightJumpHeld && game->cpu.jumpHoldTimer > 0.0f) {
+    if (game->twoPlayerMode && !game->cpu.onGround && game->cpu.vy < 0.0f)
+    {
+        if (rightJumpHeld && game->cpu.jumpHoldTimer > 0.0f)
+        {
             rightGravityScale = PLAYER_JUMP_HOLD_GRAVITY_MULT;
             game->cpu.jumpHoldTimer -= dt;
-            if (game->cpu.jumpHoldTimer < 0.0f) {
+            if (game->cpu.jumpHoldTimer < 0.0f)
+            {
                 game->cpu.jumpHoldTimer = 0.0f;
             }
-        } else {
+        }
+        else
+        {
             rightGravityScale = PLAYER_JUMP_RELEASE_GRAVITY_MULT;
         }
     }
 
     game->cpu.vy += PLAYER_GRAVITY * rightGravityScale * dt;
     game->cpu.y += game->cpu.vy * dt;
-    if (game->cpu.y >= FLOOR_Y - PLAYER_H) {
+    if (game->cpu.y >= FLOOR_Y - PLAYER_H)
+    {
         game->cpu.y = FLOOR_Y - PLAYER_H;
         game->cpu.vy = 0.0f;
         game->cpu.jumpHoldTimer = 0.0f;
@@ -1097,15 +1275,19 @@ static unsigned update_game(Game *game, float dt, const Uint8 *keys) {
     compute_arm_pose(game->player.x, game->player.y, true, !game->player.onGround, playerNearNet, &playerShoulderX, &playerShoulderY, &playerHandX, &playerHandY);
     compute_arm_pose(game->cpu.x, game->cpu.y, false, !game->cpu.onGround, cpuNearNet, &cpuShoulderX, &cpuShoulderY, &cpuHandX, &cpuHandY);
 
-    if (game->waitingServe) {
+    if (game->waitingServe)
+    {
         place_ball_in_server_hand(game);
-        if (game->serveCharging) {
+        if (game->serveCharging)
+        {
             game->serveCharge += dt / SERVE_CHARGE_MAX_TIME;
             game->serveCharge = clampf(game->serveCharge, 0.0f, 1.0f);
         }
-        if (!game->twoPlayerMode && game->serverSide > 0) {
+        if (!game->twoPlayerMode && game->serverSide > 0)
+        {
             game->cpuServeTimer -= dt;
-            if (game->cpuServeTimer <= 0.0f) {
+            if (game->cpuServeTimer <= 0.0f)
+            {
                 start_serve(game, 1);
                 events |= EVENT_CPU_RETURN;
             }
@@ -1113,66 +1295,84 @@ static unsigned update_game(Game *game, float dt, const Uint8 *keys) {
         return events;
     }
 
-    if (!game->twoPlayerMode) {
+    if (!game->twoPlayerMode)
+    {
         float cpuTargetX = clampf(game->ball.pos.x - (PLAYER_W * 0.5f), NET_X + 8.0f, COURT_MAX_X - PLAYER_W);
         float cpuMoveSpeed = CPU_SPEED * game->cpuSpeedScale * aiFactor;
-        if (game->cpu.x < cpuTargetX) {
+        if (game->cpu.x < cpuTargetX)
+        {
             game->cpu.x += cpuMoveSpeed * dt;
-            if (game->cpu.x > cpuTargetX) {
+            if (game->cpu.x > cpuTargetX)
+            {
                 game->cpu.x = cpuTargetX;
             }
-        } else if (game->cpu.x > cpuTargetX) {
+        }
+        else if (game->cpu.x > cpuTargetX)
+        {
             game->cpu.x -= cpuMoveSpeed * dt;
-            if (game->cpu.x < cpuTargetX) {
+            if (game->cpu.x < cpuTargetX)
+            {
                 game->cpu.x = cpuTargetX;
             }
         }
     }
 
-    if (!game->twoPlayerMode) {
+    if (!game->twoPlayerMode)
+    {
         if (game->ball.pos.x < NET_X + (90.0f * aiFactor) &&
             game->ball.vel.x < -40.0f &&
             game->ball.pos.y > NET_TOP_Y - (40.0f * aiFactor) &&
-            game->ball.pos.y < NET_TOP_Y + (110.0f * aiFactor)) {
+            game->ball.pos.y < NET_TOP_Y + (110.0f * aiFactor))
+        {
             shouldCpuBlock = true;
         }
 
         if (game->ball.pos.x > NET_X + 24.0f &&
             fabsf(game->ball.pos.x - cpuHeadX) < 58.0f * aiFactor &&
             game->ball.pos.y < cpuHeadY - 18.0f * aiFactor &&
-            game->ball.vel.y > 40.0f / aiFactor) {
+            game->ball.vel.y > 40.0f / aiFactor)
+        {
             shouldCpuJump = true;
         }
     }
 
-    if (game->player.isBlocking) {
+    if (game->player.isBlocking)
+    {
         game->player.blockTimer -= dt;
-        if (game->player.blockTimer <= 0.0f) {
+        if (game->player.blockTimer <= 0.0f)
+        {
             game->player.isBlocking = false;
             game->player.blockTimer = 0.0f;
         }
     }
 
-    if (game->cpu.isBlocking) {
+    if (game->cpu.isBlocking)
+    {
         game->cpu.blockTimer -= dt;
-        if (game->cpu.blockTimer <= 0.0f) {
+        if (game->cpu.blockTimer <= 0.0f)
+        {
             game->cpu.isBlocking = false;
             game->cpu.blockTimer = 0.0f;
         }
-    } else if (shouldCpuBlock) {
+    }
+    else if (shouldCpuBlock)
+    {
         game->cpu.isBlocking = true;
         game->cpu.blockTimer = CPU_BLOCK_TIME * clampf(aiFactor, 0.8f, 1.35f);
     }
 
-    if (game->cpu.onGround && (shouldCpuJump || shouldCpuBlock)) {
+    if (game->cpu.onGround && (shouldCpuJump || shouldCpuBlock))
+    {
         game->cpu.vy = CPU_JUMP_SPEED;
         game->cpu.jumpHoldTimer = 0.0f;
         game->cpu.onGround = false;
     }
 
-    if (game->cpuHitCooldown > 0.0f) {
+    if (game->cpuHitCooldown > 0.0f)
+    {
         game->cpuHitCooldown -= dt;
-        if (game->cpuHitCooldown < 0.0f) {
+        if (game->cpuHitCooldown < 0.0f)
+        {
             game->cpuHitCooldown = 0.0f;
         }
     }
@@ -1187,7 +1387,8 @@ static unsigned update_game(Game *game, float dt, const Uint8 *keys) {
         game->ball.pos.x += game->ball.vel.x * dt;
         game->ball.pos.y += game->ball.vel.y * dt;
 
-        if (game->serveOutOnMax && game->difficulty >= 2 && game->ball.pos.x - BALL_RADIUS > COURT_MAX_X) {
+        if (game->serveOutOnMax && game->difficulty >= 2 && game->ball.pos.x - BALL_RADIUS > COURT_MAX_X)
+        {
             award_point(game, game->lastTouchSide > 0, &events);
             return events;
         }
@@ -1195,51 +1396,69 @@ static unsigned update_game(Game *game, float dt, const Uint8 *keys) {
         leftRebound = should_rebound_on_back_wall(game, -1, game->ball.pos.y);
         rightRebound = should_rebound_on_back_wall(game, 1, game->ball.pos.y);
 
-        if (game->ball.pos.x + BALL_RADIUS < COURT_MIN_X) {
-            if (leftRebound) {
+        if (game->ball.pos.x + BALL_RADIUS < COURT_MIN_X)
+        {
+            if (leftRebound)
+            {
                 game->ball.pos.x = COURT_MIN_X + BALL_RADIUS;
                 game->ball.vel.x = fabsf(game->ball.vel.x) * 0.86f;
                 events |= EVENT_WALL_BOUNCE;
-            } else {
+            }
+            else
+            {
                 award_point(game, game->lastTouchSide > 0, &events);
                 return events;
             }
         }
-        if (game->ball.pos.x - BALL_RADIUS > COURT_MAX_X) {
-            if (rightRebound) {
+        if (game->ball.pos.x - BALL_RADIUS > COURT_MAX_X)
+        {
+            if (rightRebound)
+            {
                 game->ball.pos.x = COURT_MAX_X - BALL_RADIUS;
                 game->ball.vel.x = -fabsf(game->ball.vel.x) * 0.86f;
                 events |= EVENT_WALL_BOUNCE;
-            } else {
+            }
+            else
+            {
                 award_point(game, game->lastTouchSide > 0, &events);
                 return events;
             }
         }
 
-        if (game->ball.pos.x - BALL_RADIUS < NET_X + 4.0f && game->ball.pos.x + BALL_RADIUS > NET_X - 4.0f && game->ball.pos.y + BALL_RADIUS > NET_TOP_Y) {
-            if (game->ball.pos.x < NET_X) {
+        if (game->ball.pos.x - BALL_RADIUS < NET_X + 4.0f && game->ball.pos.x + BALL_RADIUS > NET_X - 4.0f && game->ball.pos.y + BALL_RADIUS > NET_TOP_Y)
+        {
+            if (game->ball.pos.x < NET_X)
+            {
                 game->ball.pos.x = NET_X - BALL_RADIUS - 4.0f;
                 game->ball.vel.x = -fabsf(game->ball.vel.x) * 0.86f;
-            } else {
+            }
+            else
+            {
                 game->ball.pos.x = NET_X + BALL_RADIUS + 4.0f;
                 game->ball.vel.x = fabsf(game->ball.vel.x) * 0.86f;
             }
             events |= EVENT_WALL_BOUNCE;
         }
 
-        if (!game->serveOutOnMax && can_touch_ball(game)) {
+        if (!game->serveOutOnMax && can_touch_ball(game))
+        {
             bool playerTouched = false;
-            if (reflect_ball_on_hand_zone(&game->ball, prevBallX, prevBallY, playerHandX, playerHandY, true, game->player.vy, game->player.onGround)) {
+            if (reflect_ball_on_hand_zone(&game->ball, prevBallX, prevBallY, playerHandX, playerHandY, true, game->player.vy, game->player.onGround))
+            {
                 playerTouched = true;
-            } else if (reflect_ball_on_head_zone(&game->ball, prevBallX, prevBallY, playerHeadX, playerHeadY, true, game->player.vy, game->player.onGround)) {
+            }
+            else if (reflect_ball_on_head_zone(&game->ball, prevBallX, prevBallY, playerHeadX, playerHeadY, true, game->player.vy, game->player.onGround))
+            {
                 playerTouched = true;
             }
 
-            if (playerTouched) {
+            if (playerTouched)
+            {
                 register_ball_touch(game);
                 game->lastTouchSide = -1;
                 game->touchesLeft += 1;
-                if (game->touchesLeft > MAX_TOUCHES_PER_SIDE) {
+                if (game->touchesLeft > MAX_TOUCHES_PER_SIDE)
+                {
                     award_point(game, false, &events);
                     return events;
                 }
@@ -1247,24 +1466,32 @@ static unsigned update_game(Game *game, float dt, const Uint8 *keys) {
             }
         }
 
-        if (!game->serveOutOnMax && game->ball.pos.x > NET_X + 10.0f) {
-            if (can_touch_ball(game)) {
+        if (!game->serveOutOnMax && game->ball.pos.x > NET_X + 10.0f)
+        {
+            if (can_touch_ball(game))
+            {
                 bool cpuTouched = false;
-                if (reflect_ball_on_hand_zone(&game->ball, prevBallX, prevBallY, cpuHandX, cpuHandY, false, game->cpu.vy, game->cpu.onGround)) {
+                if (reflect_ball_on_hand_zone(&game->ball, prevBallX, prevBallY, cpuHandX, cpuHandY, false, game->cpu.vy, game->cpu.onGround))
+                {
                     cpuTouched = true;
-                } else if (reflect_ball_on_head_zone(&game->ball, prevBallX, prevBallY, cpuHeadX, cpuHeadY, false, game->cpu.vy, game->cpu.onGround)) {
+                }
+                else if (reflect_ball_on_head_zone(&game->ball, prevBallX, prevBallY, cpuHeadX, cpuHeadY, false, game->cpu.vy, game->cpu.onGround))
+                {
                     cpuTouched = true;
                 }
 
-                if (cpuTouched) {
+                if (cpuTouched)
+                {
                     register_ball_touch(game);
                     game->lastTouchSide = 1;
                     game->touchesRight += 1;
-                    if (game->touchesRight > MAX_TOUCHES_PER_SIDE) {
+                    if (game->touchesRight > MAX_TOUCHES_PER_SIDE)
+                    {
                         award_point(game, true, &events);
                         return events;
                     }
-                    if (game->cpuHitCooldown <= 0.0f) {
+                    if (game->cpuHitCooldown <= 0.0f)
+                    {
                         game->cpuHitCooldown = CPU_HIT_COOLDOWN / clampf(game->cpuSpeedScale * aiFactor, 0.6f, 2.8f);
                     }
                     events |= EVENT_CPU_RETURN;
@@ -1274,21 +1501,29 @@ static unsigned update_game(Game *game, float dt, const Uint8 *keys) {
 
         {
             int currentSide = game->ball.pos.x < NET_X ? -1 : 1;
-            if (currentSide != game->ballSide) {
+            if (currentSide != game->ballSide)
+            {
                 game->ballSide = currentSide;
-                if (currentSide < 0) {
+                if (currentSide < 0)
+                {
                     game->touchesLeft = 0;
-                } else {
+                }
+                else
+                {
                     game->touchesRight = 0;
                 }
             }
         }
     }
 
-    if (game->ball.pos.y + BALL_RADIUS >= FLOOR_Y) {
-        if (game->ball.pos.x < NET_X) {
+    if (game->ball.pos.y + BALL_RADIUS >= FLOOR_Y)
+    {
+        if (game->ball.pos.x < NET_X)
+        {
             award_point(game, false, &events);
-        } else {
+        }
+        else
+        {
             award_point(game, true, &events);
         }
     }
@@ -1296,19 +1531,25 @@ static unsigned update_game(Game *game, float dt, const Uint8 *keys) {
     return events;
 }
 
-static void draw_filled_circle(SDL_Renderer *renderer, int cx, int cy, int radius) {
-    for (int dy = -radius; dy <= radius; ++dy) {
+static void draw_filled_circle(SDL_Renderer *renderer, int cx, int cy, int radius)
+{
+    for (int dy = -radius; dy <= radius; ++dy)
+    {
         int dx = (int)sqrtf((float)(radius * radius - dy * dy));
         SDL_RenderDrawLine(renderer, cx - dx, cy + dy, cx + dx, cy + dy);
     }
 }
 
-static void draw_volleyball(SDL_Renderer *renderer, int cx, int cy, int radius) {
+static void draw_volleyball(SDL_Renderer *renderer, int cx, int cy, int radius)
+{
     int r2 = radius * radius;
 
-    for (int y = -radius; y <= radius; ++y) {
-        for (int x = -radius; x <= radius; ++x) {
-            if (x * x + y * y > r2) {
+    for (int y = -radius; y <= radius; ++y)
+    {
+        for (int x = -radius; x <= radius; ++x)
+        {
+            if (x * x + y * y > r2)
+            {
                 continue;
             }
 
@@ -1322,16 +1563,25 @@ static void draw_volleyball(SDL_Renderer *renderer, int cx, int cy, int radius) 
                 bool bluePanel = fabsf(seamA) < 0.15f || fabsf(seamB) < 0.13f || fabsf(seamC) < 0.12f;
                 bool bayer = (((x & 1) == 0) && ((y & 1) == 0)) || (((x & 1) != 0) && ((y & 1) != 0));
 
-                if (bluePanel) {
-                    if (bayer) {
+                if (bluePanel)
+                {
+                    if (bayer)
+                    {
                         SDL_SetRenderDrawColor(renderer, 62, 114, 188, 255);
-                    } else {
+                    }
+                    else
+                    {
                         SDL_SetRenderDrawColor(renderer, 48, 92, 160, 255);
                     }
-                } else {
-                    if (bayer) {
+                }
+                else
+                {
+                    if (bayer)
+                    {
                         SDL_SetRenderDrawColor(renderer, 236, 194, 108, 255);
-                    } else {
+                    }
+                    else
+                    {
                         SDL_SetRenderDrawColor(renderer, 210, 166, 86, 255);
                     }
                 }
@@ -1341,7 +1591,8 @@ static void draw_volleyball(SDL_Renderer *renderer, int cx, int cy, int radius) 
     }
 
     SDL_SetRenderDrawColor(renderer, 248, 216, 132, 255);
-    for (int a = 0; a < 360; ++a) {
+    for (int a = 0; a < 360; ++a)
+    {
         float rad = (float)a * 3.14159265f / 180.0f;
         int px = cx + (int)((float)radius * cosf(rad));
         int py = cy + (int)((float)radius * sinf(rad));
@@ -1349,8 +1600,8 @@ static void draw_volleyball(SDL_Renderer *renderer, int cx, int cy, int radius) 
     }
 }
 
-
-static const uint8_t *glyph_5x7(char c) {
+static const uint8_t *glyph_5x7(char c)
+{
     static const uint8_t SPACE[7] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
     static const uint8_t COLON[7] = {0x00, 0x04, 0x04, 0x00, 0x04, 0x04, 0x00};
     static const uint8_t UNDERSCORE[7] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x1F};
@@ -1391,63 +1642,107 @@ static const uint8_t *glyph_5x7(char c) {
     static const uint8_t EIGHT[7] = {0x0E, 0x11, 0x11, 0x0E, 0x11, 0x11, 0x0E};
     static const uint8_t NINE[7] = {0x0E, 0x11, 0x11, 0x0F, 0x01, 0x01, 0x0E};
 
-    switch (c) {
-        case 'A': return A;
-        case 'B': return B;
-        case 'C': return C;
-        case 'D': return D;
-        case 'E': return E;
-        case 'F': return F;
-        case 'G': return G;
-        case 'H': return H;
-        case 'I': return I;
-        case 'J': return J;
-        case 'K': return K;
-        case 'L': return L;
-        case 'M': return M;
-        case 'N': return N;
-        case 'O': return O;
-        case 'P': return P;
-        case 'Q': return Q;
-        case 'R': return R;
-        case 'S': return S;
-        case 'T': return T;
-        case 'U': return U;
-        case 'V': return V;
-        case 'W': return W;
-        case 'X': return X;
-        case 'Y': return Y;
-        case 'Z': return Z;
-        case '0': return ZERO;
-        case '1': return ONE;
-        case '2': return TWO;
-        case '3': return THREE;
-        case '4': return FOUR;
-        case '5': return FIVE;
-        case '6': return SIX;
-        case '7': return SEVEN;
-        case '8': return EIGHT;
-        case '9': return NINE;
-        case ':': return COLON;
-        case '_': return UNDERSCORE;
-        default: return SPACE;
+    switch (c)
+    {
+    case 'A':
+        return A;
+    case 'B':
+        return B;
+    case 'C':
+        return C;
+    case 'D':
+        return D;
+    case 'E':
+        return E;
+    case 'F':
+        return F;
+    case 'G':
+        return G;
+    case 'H':
+        return H;
+    case 'I':
+        return I;
+    case 'J':
+        return J;
+    case 'K':
+        return K;
+    case 'L':
+        return L;
+    case 'M':
+        return M;
+    case 'N':
+        return N;
+    case 'O':
+        return O;
+    case 'P':
+        return P;
+    case 'Q':
+        return Q;
+    case 'R':
+        return R;
+    case 'S':
+        return S;
+    case 'T':
+        return T;
+    case 'U':
+        return U;
+    case 'V':
+        return V;
+    case 'W':
+        return W;
+    case 'X':
+        return X;
+    case 'Y':
+        return Y;
+    case 'Z':
+        return Z;
+    case '0':
+        return ZERO;
+    case '1':
+        return ONE;
+    case '2':
+        return TWO;
+    case '3':
+        return THREE;
+    case '4':
+        return FOUR;
+    case '5':
+        return FIVE;
+    case '6':
+        return SIX;
+    case '7':
+        return SEVEN;
+    case '8':
+        return EIGHT;
+    case '9':
+        return NINE;
+    case ':':
+        return COLON;
+    case '_':
+        return UNDERSCORE;
+    default:
+        return SPACE;
     }
 }
 
-static void draw_text_5x7(SDL_Renderer *renderer, int x, int y, const char *text, int scale, SDL_Color color) {
+static void draw_text_5x7(SDL_Renderer *renderer, int x, int y, const char *text, int scale, SDL_Color color)
+{
     SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
 
-    for (int i = 0; text[i] != '\0'; ++i) {
+    for (int i = 0; text[i] != '\0'; ++i)
+    {
         const uint8_t *g = glyph_5x7(text[i]);
-        for (int row = 0; row < 7; ++row) {
-            for (int col = 0; col < 5; ++col) {
-                if ((g[row] >> (4 - col)) & 1) {
+        for (int row = 0; row < 7; ++row)
+        {
+            for (int col = 0; col < 5; ++col)
+            {
+                if ((g[row] >> (4 - col)) & 1)
+                {
                     SDL_Rect px = {
                         x + i * (6 * scale) + col * scale,
                         y + row * scale,
                         scale,
-                        scale
-                    };
+                        scale};
                     SDL_RenderFillRect(renderer, &px);
                 }
             }
@@ -1455,18 +1750,22 @@ static void draw_text_5x7(SDL_Renderer *renderer, int x, int y, const char *text
     }
 }
 
-static bool dither_keep_pixel(int x, int y, float visibility, int pixelSize) {
+static bool dither_keep_pixel(int x, int y, float visibility, int pixelSize)
+{
     uint32_t h;
     uint32_t n;
 
-    if (visibility >= 1.0f) {
+    if (visibility >= 1.0f)
+    {
         return true;
     }
-    if (visibility <= 0.0f) {
+    if (visibility <= 0.0f)
+    {
         return false;
     }
 
-    if (pixelSize < 1) {
+    if (pixelSize < 1)
+    {
         pixelSize = 1;
     }
 
@@ -1480,16 +1779,21 @@ static bool dither_keep_pixel(int x, int y, float visibility, int pixelSize) {
     return ((float)n / 1023.0f) < visibility;
 }
 
-static void draw_dithered_fill_rect(SDL_Renderer *renderer, SDL_Rect rect, SDL_Color color, float visibility, int pixelSize) {
-    if (rect.w <= 0 || rect.h <= 0 || visibility <= 0.0f) {
+static void draw_dithered_fill_rect(SDL_Renderer *renderer, SDL_Rect rect, SDL_Color color, float visibility, int pixelSize)
+{
+    if (rect.w <= 0 || rect.h <= 0 || visibility <= 0.0f)
+    {
         return;
     }
 
     SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
-    for (int y = rect.y; y < rect.y + rect.h; y += pixelSize) {
-        for (int x = rect.x; x < rect.x + rect.w; x += pixelSize) {
+    for (int y = rect.y; y < rect.y + rect.h; y += pixelSize)
+    {
+        for (int x = rect.x; x < rect.x + rect.w; x += pixelSize)
+        {
             SDL_Rect px = {x, y, pixelSize, pixelSize};
-            if (!dither_keep_pixel(x, y, visibility, pixelSize)) {
+            if (!dither_keep_pixel(x, y, visibility, pixelSize))
+            {
                 continue;
             }
             SDL_RenderFillRect(renderer, &px);
@@ -1497,23 +1801,31 @@ static void draw_dithered_fill_rect(SDL_Renderer *renderer, SDL_Rect rect, SDL_C
     }
 }
 
-static void draw_text_5x7_dithered(SDL_Renderer *renderer, int x, int y, const char *text, int scale, SDL_Color color, float visibility, int pixelSize) {
+static void draw_text_5x7_dithered(SDL_Renderer *renderer, int x, int y, const char *text, int scale, SDL_Color color, float visibility, int pixelSize)
+{
     SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
 
-    for (int i = 0; text[i] != '\0'; ++i) {
+    for (int i = 0; text[i] != '\0'; ++i)
+    {
         const uint8_t *g = glyph_5x7(text[i]);
-        for (int row = 0; row < 7; ++row) {
-            for (int col = 0; col < 5; ++col) {
-                if (((g[row] >> (4 - col)) & 1) == 0) {
+        for (int row = 0; row < 7; ++row)
+        {
+            for (int col = 0; col < 5; ++col)
+            {
+                if (((g[row] >> (4 - col)) & 1) == 0)
+                {
                     continue;
                 }
 
-                for (int sy = 0; sy < scale; sy += pixelSize) {
-                    for (int sx = 0; sx < scale; sx += pixelSize) {
+                for (int sy = 0; sy < scale; sy += pixelSize)
+                {
+                    for (int sx = 0; sx < scale; sx += pixelSize)
+                    {
                         int pxX = x + i * (6 * scale) + col * scale + sx;
                         int pxY = y + row * scale + sy;
                         SDL_Rect px = {pxX, pxY, pixelSize, pixelSize};
-                        if (!dither_keep_pixel(pxX, pxY, visibility, pixelSize)) {
+                        if (!dither_keep_pixel(pxX, pxY, visibility, pixelSize))
+                        {
                             continue;
                         }
                         SDL_RenderFillRect(renderer, &px);
@@ -1524,61 +1836,72 @@ static void draw_text_5x7_dithered(SDL_Renderer *renderer, int x, int y, const c
     }
 }
 
-static void draw_digit_7seg(SDL_Renderer *renderer, int x, int y, int digit, int scale, SDL_Color color) {
+static void draw_digit_7seg(SDL_Renderer *renderer, int x, int y, int digit, int scale, SDL_Color color)
+{
     static const uint8_t DIGIT_MASK[10] = {
         0x3F, 0x06, 0x5B, 0x4F, 0x66,
-        0x6D, 0x7D, 0x07, 0x7F, 0x6F
-    };
+        0x6D, 0x7D, 0x07, 0x7F, 0x6F};
     int thickness = scale;
     int length = 4 * scale;
     uint8_t mask;
 
-    if (digit < 0 || digit > 9) {
+    if (digit < 0 || digit > 9)
+    {
         return;
     }
 
     mask = DIGIT_MASK[digit];
     SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
 
-    if (mask & (1 << 0)) {
+    if (mask & (1 << 0))
+    {
         SDL_Rect seg = {x + thickness, y, length, thickness};
         SDL_RenderFillRect(renderer, &seg);
     }
-    if (mask & (1 << 1)) {
+    if (mask & (1 << 1))
+    {
         SDL_Rect seg = {x + thickness + length, y + thickness, thickness, length};
         SDL_RenderFillRect(renderer, &seg);
     }
-    if (mask & (1 << 2)) {
+    if (mask & (1 << 2))
+    {
         SDL_Rect seg = {x + thickness + length, y + 2 * thickness + length, thickness, length};
         SDL_RenderFillRect(renderer, &seg);
     }
-    if (mask & (1 << 3)) {
+    if (mask & (1 << 3))
+    {
         SDL_Rect seg = {x + thickness, y + 2 * (thickness + length), length, thickness};
         SDL_RenderFillRect(renderer, &seg);
     }
-    if (mask & (1 << 4)) {
+    if (mask & (1 << 4))
+    {
         SDL_Rect seg = {x, y + 2 * thickness + length, thickness, length};
         SDL_RenderFillRect(renderer, &seg);
     }
-    if (mask & (1 << 5)) {
+    if (mask & (1 << 5))
+    {
         SDL_Rect seg = {x, y + thickness, thickness, length};
         SDL_RenderFillRect(renderer, &seg);
     }
-    if (mask & (1 << 6)) {
+    if (mask & (1 << 6))
+    {
         SDL_Rect seg = {x + thickness, y + thickness + length, length, thickness};
         SDL_RenderFillRect(renderer, &seg);
     }
 }
 
-static int draw_two_digits_7seg(SDL_Renderer *renderer, int x, int y, int value, int scale, SDL_Color color) {
+static int draw_two_digits_7seg(SDL_Renderer *renderer, int x, int y, int value, int scale, SDL_Color color)
+{
     int tens;
     int ones;
     int digitWidth;
 
-    if (value < 0) {
+    if (value < 0)
+    {
         value = 0;
     }
-    if (value > 99) {
+    if (value > 99)
+    {
         value = 99;
     }
 
@@ -1591,7 +1914,8 @@ static int draw_two_digits_7seg(SDL_Renderer *renderer, int x, int y, int value,
     return digitWidth * 2 + scale;
 }
 
-static void render_hud(SDL_Renderer *renderer, const Game *game) {
+static void render_hud(SDL_Renderer *renderer, const Game *game)
+{
     int boardW = 300;
     int boardH = 94;
     int boardX = (WINDOW_WIDTH - boardW) / 2;
@@ -1642,14 +1966,16 @@ static void render_scene_overlay(
     int nameSetsFor,
     int nameSetsAgainst,
     int namePointsFor,
-    int namePointsAgainst
-) {
-    if (scene == SCENE_PLAYING) {
+    int namePointsAgainst)
+{
+    if (scene == SCENE_PLAYING)
+    {
         return;
     }
 
     SDL_Rect box = {200, 182, 560, 280};
-    if (scene == SCENE_START) {
+    if (scene == SCENE_START)
+    {
         box.x = 96;
         box.y = 238;
     }
@@ -1661,13 +1987,17 @@ static void render_scene_overlay(
     SDL_Color title = {245, 230, 165, 255};
     SDL_Color text = {176, 214, 230, 255};
 
-    if (scene == SCENE_START) {
+    if (scene == SCENE_START)
+    {
         bool blink = fmodf(uiTimeSeconds, 1.0f) < 0.58f;
         const char *difficultyLabel = "NORMAL";
 
-        if (startDifficulty <= 0) {
+        if (startDifficulty <= 0)
+        {
             difficultyLabel = "EASY";
-        } else if (startDifficulty >= 2) {
+        }
+        else if (startDifficulty >= 2)
+        {
             difficultyLabel = "HARD";
         }
 
@@ -1675,12 +2005,16 @@ static void render_scene_overlay(
         SDL_RenderDrawLine(renderer, box.x + 28, box.y + 92, box.x + 212, box.y + 92);
 
         draw_text_5x7(renderer, box.x + 22, box.y + 42, "START", 4, title);
-        if (blink) {
+        if (blink)
+        {
             draw_text_5x7(renderer, box.x + 78, box.y + 112, "PRESS ENTER", 2, text);
         }
-        if (startTwoPlayer) {
+        if (startTwoPlayer)
+        {
             draw_text_5x7(renderer, box.x + 78, box.y + 136, "PLAYER TWO", 2, text);
-        } else {
+        }
+        else
+        {
             draw_text_5x7(renderer, box.x + 78, box.y + 136, "PLAYER ONE", 2, text);
         }
         draw_text_5x7(renderer, box.x + 102, box.y + 152, "UP DOWN", 1, text);
@@ -1689,17 +2023,22 @@ static void render_scene_overlay(
         draw_text_5x7(renderer, box.x + 156, box.y + 164, difficultyLabel, 2, text);
         draw_text_5x7(renderer, box.x + 92, box.y + 180, "LEFT RIGHT", 1, text);
 
-        if (audioMuted) {
+        if (audioMuted)
+        {
             draw_text_5x7(renderer, box.x + 78, box.y + 192, "SOUND MUTE", 2, text);
-        } else {
+        }
+        else
+        {
             draw_text_5x7(renderer, box.x + 78, box.y + 192, "SOUND LIVE", 2, text);
         }
         draw_text_5x7(renderer, box.x + 102, box.y + 208, "SPACE", 1, text);
         draw_text_5x7(renderer, box.x + 78, box.y + 220, "ENTER PLAY  ESC", 1, text);
 
-        if (!startTwoPlayer) {
+        if (!startTwoPlayer)
+        {
             draw_text_5x7(renderer, box.x + 336, box.y + 134, "HIGHSCORES", 1, text);
-            for (int i = 0; i < highscoreCount && i < MAX_HIGHSCORES; ++i) {
+            for (int i = 0; i < highscoreCount && i < MAX_HIGHSCORES; ++i)
+            {
                 char line[64];
                 snprintf(
                     line,
@@ -1710,22 +2049,27 @@ static void render_scene_overlay(
                     highscores[i].setsFor,
                     highscores[i].setsAgainst,
                     highscores[i].pointsFor,
-                    highscores[i].pointsAgainst
-                );
+                    highscores[i].pointsAgainst);
                 draw_text_5x7(renderer, box.x + 336, box.y + 146 + i * 12, line, 1, text);
             }
         }
-    } else if (scene == SCENE_PAUSED) {
+    }
+    else if (scene == SCENE_PAUSED)
+    {
         draw_text_5x7(renderer, box.x + 126, box.y + 42, "PAUSE", 4, title);
         draw_text_5x7(renderer, box.x + 84, box.y + 122, "P OR ENTER TO RESUME", 2, text);
         draw_text_5x7(renderer, box.x + 88, box.y + 162, "W BLOCK  R RESET", 1, text);
-    } else if (scene == SCENE_GAME_OVER) {
+    }
+    else if (scene == SCENE_GAME_OVER)
+    {
         SDL_SetRenderDrawColor(renderer, 128, 48, 58, 255);
         SDL_RenderDrawRect(renderer, &box);
         draw_text_5x7(renderer, box.x + 74, box.y + 42, "GAME OVER", 4, title);
         draw_text_5x7(renderer, box.x + 84, box.y + 122, "PRESS ENTER RETRY", 2, text);
         draw_text_5x7(renderer, box.x + 84, box.y + 162, "R TO TITLE  M SOUND", 1, text);
-    } else if (scene == SCENE_NAME_ENTRY) {
+    }
+    else if (scene == SCENE_NAME_ENTRY)
+    {
         char scoreLine[32];
         char nameLine[48];
         bool blink = fmodf(uiTimeSeconds, 1.0f) < 0.58f;
@@ -1737,11 +2081,13 @@ static void render_scene_overlay(
             nameSetsFor,
             nameSetsAgainst,
             namePointsFor,
-            namePointsAgainst
-        );
-        if (blink) {
+            namePointsAgainst);
+        if (blink)
+        {
             snprintf(nameLine, sizeof(nameLine), "NAME %s_", nameInput);
-        } else {
+        }
+        else
+        {
             snprintf(nameLine, sizeof(nameLine), "NAME %s", nameInput);
         }
 
@@ -1768,8 +2114,8 @@ static void render_game(
     int nameSetsFor,
     int nameSetsAgainst,
     int namePointsFor,
-    int namePointsAgainst
-) {
+    int namePointsAgainst)
+{
     SDL_SetRenderDrawColor(renderer, 14, 25, 38, 255);
     SDL_RenderClear(renderer);
 
@@ -1777,7 +2123,8 @@ static void render_game(
     SDL_SetRenderDrawColor(renderer, 21, 48, 70, 255);
     SDL_RenderFillRect(renderer, &court);
 
-    if (scene != SCENE_PLAYING || game->startBannerFade > 0.0f) {
+    if (scene != SCENE_PLAYING || game->startBannerFade > 0.0f)
+    {
         SDL_Rect banner = {(WINDOW_WIDTH - 520) / 2, 164, 520, 58};
         int tipW = 24;
         int midY = banner.y + banner.h / 2;
@@ -1796,7 +2143,8 @@ static void render_game(
         SDL_Color wallColor = {21, 48, 70, 255};
         SDL_Color borderColor = {236, 196, 106, 255};
 
-        if (scene == SCENE_PLAYING) {
+        if (scene == SCENE_PLAYING)
+        {
             fade = clampf(game->startBannerFade / START_BANNER_FADE_TIME, 0.0f, 1.0f);
             visibility = fade;
         }
@@ -1808,7 +2156,8 @@ static void render_game(
 
         /* Cut inward arrow notches so the tips point into the banner. */
         SDL_SetRenderDrawColor(renderer, wallColor.r, wallColor.g, wallColor.b, wallColor.a);
-        for (int y = 0; y < banner.h; ++y) {
+        for (int y = 0; y < banner.h; ++y)
+        {
             int dy = abs(y - banner.h / 2);
             int depth = tipW - (dy * tipW) / (banner.h / 2);
             int leftEnd = banner.x + depth;
@@ -1820,7 +2169,8 @@ static void render_game(
 
         draw_dithered_fill_rect(renderer, (SDL_Rect){banner.x, banner.y, banner.w, 1}, borderColor, visibility, fadePixelSize);
         draw_dithered_fill_rect(renderer, (SDL_Rect){banner.x, banner.y + banner.h - 1, banner.w, 1}, borderColor, visibility, fadePixelSize);
-        for (int i = 0; i <= tipW; ++i) {
+        for (int i = 0; i <= tipW; ++i)
+        {
             int yA = banner.y + (i * (midY - banner.y)) / tipW;
             int yB = banner.y + banner.h - 1 - (i * (banner.y + banner.h - 1 - midY)) / tipW;
             draw_dithered_fill_rect(renderer, (SDL_Rect){banner.x + i, yA, 1, 1}, borderColor, visibility, fadePixelSize);
@@ -1871,7 +2221,8 @@ static void render_game(
         SDL_RenderDrawLine(renderer, meshLeftBottomX, meshLeftBottomY - 2, meshRightBottomX, meshRightBottomY - 2);
 
         SDL_SetRenderDrawColor(renderer, 48, 48, 48, 255);
-        for (int i = 0; i <= 8; ++i) {
+        for (int i = 0; i <= 8; ++i)
+        {
             float t = (float)i / 8.0f;
             int xTop = (int)((1.0f - t) * (float)meshLeftTopX + t * (float)meshRightTopX);
             int yTop = (int)((1.0f - t) * (float)meshLeftTopY + t * (float)meshRightTopY);
@@ -1880,7 +2231,8 @@ static void render_game(
             SDL_RenderDrawLine(renderer, xTop, yTop, xBottom, yBottom);
         }
 
-        for (int j = 0; j <= 6; ++j) {
+        for (int j = 0; j <= 6; ++j)
+        {
             float t = (float)j / 6.0f;
             int xLeft = (int)((1.0f - t) * (float)meshLeftTopX + t * (float)meshLeftBottomX);
             int yLeft = (int)((1.0f - t) * (float)meshLeftTopY + t * (float)meshLeftBottomY);
@@ -1907,20 +2259,26 @@ static void render_game(
     SDL_Color cpuBodyColor;
     SDL_Color handColor = {255, 188, 110, 255};
 
-    if (game->player.isBlocking) {
+    if (game->player.isBlocking)
+    {
         playerBodyColor = (SDL_Color){255, 206, 84, 255};
         SDL_SetRenderDrawColor(renderer, 255, 206, 84, 255);
-    } else {
+    }
+    else
+    {
         playerBodyColor = (SDL_Color){228, 96, 132, 255};
         SDL_SetRenderDrawColor(renderer, 228, 96, 132, 255);
     }
     SDL_RenderFillRect(renderer, &player);
 
     SDL_Rect cpu = {(int)game->cpu.x, (int)game->cpu.y, (int)PLAYER_W, (int)PLAYER_H};
-    if (game->cpu.isBlocking) {
+    if (game->cpu.isBlocking)
+    {
         cpuBodyColor = (SDL_Color){255, 206, 84, 255};
         SDL_SetRenderDrawColor(renderer, 255, 206, 84, 255);
-    } else {
+    }
+    else
+    {
         cpuBodyColor = (SDL_Color){130, 240, 152, 255};
         SDL_SetRenderDrawColor(renderer, 130, 240, 152, 255);
     }
@@ -1934,10 +2292,12 @@ static void render_game(
     playerArmInFront = !game->player.onGround;
     cpuArmInFront = !game->cpu.onGround;
 
-    if (!playerArmInFront) {
+    if (!playerArmInFront)
+    {
         draw_arm_with_hand(renderer, playerShoulderX, playerShoulderY, playerHandX, playerHandY, true, playerBodyColor, handColor);
     }
-    if (!cpuArmInFront) {
+    if (!cpuArmInFront)
+    {
         draw_arm_with_hand(renderer, cpuShoulderX, cpuShoulderY, cpuHandX, cpuHandY, false, cpuBodyColor, handColor);
     }
 
@@ -1946,23 +2306,24 @@ static void render_game(
         renderer,
         (int)(game->player.x + PLAYER_W * 0.5f),
         (int)game->player.y,
-        (int)HEAD_RADIUS
-    );
+        (int)HEAD_RADIUS);
     draw_filled_circle(
         renderer,
         (int)(game->cpu.x + PLAYER_W * 0.5f),
         (int)game->cpu.y,
-        (int)HEAD_RADIUS
-    );
+        (int)HEAD_RADIUS);
 
-    if (playerArmInFront) {
+    if (playerArmInFront)
+    {
         draw_arm_with_hand(renderer, playerShoulderX, playerShoulderY, playerHandX, playerHandY, true, playerBodyColor, handColor);
     }
-    if (cpuArmInFront) {
+    if (cpuArmInFront)
+    {
         draw_arm_with_hand(renderer, cpuShoulderX, cpuShoulderY, cpuHandX, cpuHandY, false, cpuBodyColor, handColor);
     }
 
-    if (game->waitingServe && (game->serverSide < 0 || game->twoPlayerMode)) {
+    if (game->waitingServe && (game->serverSide < 0 || game->twoPlayerMode))
+    {
         int bx;
         int by;
         int bw = 56;
@@ -1971,10 +2332,13 @@ static void render_game(
         SDL_Rect bg;
         SDL_Rect fg;
 
-        if (game->serverSide < 0) {
+        if (game->serverSide < 0)
+        {
             bx = (int)(game->player.x + PLAYER_W * 0.5f) - 28;
             by = (int)(game->player.y - HEAD_RADIUS - BALL_RADIUS - 20.0f);
-        } else {
+        }
+        else
+        {
             bx = (int)(game->cpu.x + PLAYER_W * 0.5f) - 28;
             by = (int)(game->cpu.y - HEAD_RADIUS - BALL_RADIUS - 20.0f);
         }
@@ -1991,9 +2355,12 @@ static void render_game(
         SDL_SetRenderDrawColor(renderer, 20, 32, 44, 255);
         SDL_RenderFillRect(renderer, &bg);
 
-        if (game->serveCharge >= 0.999f && (fmodf(uiTimeSeconds * 10.0f, 2.0f) < 1.0f)) {
+        if (game->serveCharge >= 0.999f && (fmodf(uiTimeSeconds * 10.0f, 2.0f) < 1.0f))
+        {
             SDL_SetRenderDrawColor(renderer, 240, 96, 82, 255);
-        } else {
+        }
+        else
+        {
             SDL_SetRenderDrawColor(renderer, 86, 214, 176, 255);
         }
         SDL_RenderFillRect(renderer, &fg);
@@ -2016,14 +2383,15 @@ static void render_game(
         nameSetsFor,
         nameSetsAgainst,
         namePointsFor,
-        namePointsAgainst
-    );
+        namePointsAgainst);
 
     SDL_RenderPresent(renderer);
 }
 
-int main(void) {
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_AUDIO) != 0) {
+int main(void)
+{
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_AUDIO) != 0)
+    {
         fprintf(stderr, "SDL_Init failed: %s\n", SDL_GetError());
         return 1;
     }
@@ -2039,7 +2407,8 @@ int main(void) {
         wanted.callback = NULL;
 
         audio.device = SDL_OpenAudioDevice(NULL, 0, &wanted, &audio.spec, 0);
-        if (audio.device != 0) {
+        if (audio.device != 0)
+        {
             SDL_PauseAudioDevice(audio.device, 0);
         }
     }
@@ -2050,22 +2419,25 @@ int main(void) {
         SDL_WINDOWPOS_CENTERED,
         WINDOW_WIDTH,
         WINDOW_HEIGHT,
-        SDL_WINDOW_SHOWN
-    );
-    if (!window) {
+        SDL_WINDOW_SHOWN);
+    if (!window)
+    {
         fprintf(stderr, "SDL_CreateWindow failed: %s\n", SDL_GetError());
         SDL_Quit();
         return 1;
     }
 
     SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
-    if (!renderer) {
+    if (!renderer)
+    {
         renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);
     }
-    if (!renderer) {
+    if (!renderer)
+    {
         fprintf(stderr, "SDL_CreateRenderer failed: %s\n", SDL_GetError());
         SDL_DestroyWindow(window);
-        if (audio.device != 0) {
+        if (audio.device != 0)
+        {
             SDL_CloseAudioDevice(audio.device);
         }
         SDL_Quit();
@@ -2094,25 +2466,34 @@ int main(void) {
     float accumulator = 0.0f;
     float uiTimeSeconds = 0.0f;
 
-    while (running) {
+    while (running)
+    {
         SDL_Event event;
-        while (SDL_PollEvent(&event)) {
-            if (event.type == SDL_QUIT) {
+        while (SDL_PollEvent(&event))
+        {
+            if (event.type == SDL_QUIT)
+            {
                 running = false;
             }
-            if (event.type == SDL_KEYDOWN) {
+            if (event.type == SDL_KEYDOWN)
+            {
                 SDL_Scancode sc = event.key.keysym.scancode;
 
-                if (scene == SCENE_NAME_ENTRY) {
-                    if (sc == SDL_SCANCODE_BACKSPACE) {
-                        if (nameInputLen > 0) {
+                if (scene == SCENE_NAME_ENTRY)
+                {
+                    if (sc == SDL_SCANCODE_BACKSPACE)
+                    {
+                        if (nameInputLen > 0)
+                        {
                             nameInputLen -= 1;
                             nameInput[nameInputLen] = '\0';
                         }
                         continue;
                     }
-                    if (sc == SDL_SCANCODE_RETURN || sc == SDL_SCANCODE_KP_ENTER) {
-                        if (nameInputLen == 0) {
+                    if (sc == SDL_SCANCODE_RETURN || sc == SDL_SCANCODE_KP_ENTER)
+                    {
+                        if (nameInputLen == 0)
+                        {
                             snprintf(nameInput, sizeof(nameInput), "%s", lastPlayerName);
                             nameInputLen = (int)strlen(nameInput);
                         }
@@ -2124,20 +2505,21 @@ int main(void) {
                             nameSetsFor,
                             nameSetsAgainst,
                             namePointsFor,
-                            namePointsAgainst
-                        );
+                            namePointsAgainst);
                         save_highscores(highscores, highscoreCount);
                         scene = SCENE_START;
                         continue;
                     }
-                    if (sc == SDL_SCANCODE_ESCAPE) {
+                    if (sc == SDL_SCANCODE_ESCAPE)
+                    {
                         scene = SCENE_START;
                         continue;
                     }
 
                     {
                         char ch = scancode_to_name_char(sc);
-                        if (ch != '\0' && nameInputLen < HIGHSCORE_NAME_LEN) {
+                        if (ch != '\0' && nameInputLen < HIGHSCORE_NAME_LEN)
+                        {
                             nameInput[nameInputLen++] = ch;
                             nameInput[nameInputLen] = '\0';
                         }
@@ -2145,101 +2527,135 @@ int main(void) {
                     continue;
                 }
 
-                if (scene == SCENE_START) {
-                    if (sc == SDL_SCANCODE_UP) {
+                if (scene == SCENE_START)
+                {
+                    if (sc == SDL_SCANCODE_UP)
+                    {
                         startTwoPlayer = false;
                     }
-                    if (sc == SDL_SCANCODE_DOWN) {
+                    if (sc == SDL_SCANCODE_DOWN)
+                    {
                         startTwoPlayer = true;
                     }
-                    if (sc == SDL_SCANCODE_LEFT) {
-                        if (startDifficulty > 0) {
+                    if (sc == SDL_SCANCODE_LEFT)
+                    {
+                        if (startDifficulty > 0)
+                        {
                             startDifficulty -= 1;
                         }
                     }
-                    if (sc == SDL_SCANCODE_RIGHT) {
-                        if (startDifficulty < 2) {
+                    if (sc == SDL_SCANCODE_RIGHT)
+                    {
+                        if (startDifficulty < 2)
+                        {
                             startDifficulty += 1;
                         }
                     }
-                    if (sc == SDL_SCANCODE_SPACE) {
+                    if (sc == SDL_SCANCODE_SPACE)
+                    {
                         audio.muted = !audio.muted;
-                        if (audio.muted && audio.device != 0) {
+                        if (audio.muted && audio.device != 0)
+                        {
                             SDL_ClearQueuedAudio(audio.device);
                         }
                     }
                 }
 
-                if ((sc == SDL_SCANCODE_W || (!game.twoPlayerMode && sc == SDL_SCANCODE_UP)) && scene == SCENE_PLAYING) {
-                    if (game.player.onGround) {
+                if ((sc == SDL_SCANCODE_W || (!game.twoPlayerMode && (sc == SDL_SCANCODE_UP || sc == SDL_SCANCODE_SPACE))) && scene == SCENE_PLAYING)
+                {
+                    if (game.player.onGround)
+                    {
                         game.player.vy = PLAYER_JUMP_SPEED;
                         game.player.jumpHoldTimer = PLAYER_JUMP_HOLD_TIME;
                         game.player.onGround = false;
                     }
-                    if (!game.waitingServe) {
+                    if (!game.waitingServe)
+                    {
                         game.player.isBlocking = true;
                         game.player.blockTimer = game.blockWindow;
                     }
                 }
 
-                if (sc == SDL_SCANCODE_UP && scene == SCENE_PLAYING && game.twoPlayerMode) {
-                    if (game.cpu.onGround) {
+                if (sc == SDL_SCANCODE_UP && scene == SCENE_PLAYING && game.twoPlayerMode)
+                {
+                    if (game.cpu.onGround)
+                    {
                         game.cpu.vy = PLAYER_JUMP_SPEED;
                         game.cpu.jumpHoldTimer = PLAYER_JUMP_HOLD_TIME;
                         game.cpu.onGround = false;
                     }
-                    if (!game.waitingServe) {
+                    if (!game.waitingServe)
+                    {
                         game.cpu.isBlocking = true;
                         game.cpu.blockTimer = game.blockWindow;
                     }
                 }
 
-                if ((sc == SDL_SCANCODE_LCTRL || (!game.twoPlayerMode && sc == SDL_SCANCODE_RCTRL)) && scene == SCENE_PLAYING) {
-                    if (game.waitingServe && game.serverSide < 0) {
+                if ((sc == SDL_SCANCODE_LCTRL || (!game.twoPlayerMode && sc == SDL_SCANCODE_RCTRL)) && scene == SCENE_PLAYING)
+                {
+                    if (game.waitingServe && game.serverSide < 0)
+                    {
                         game.serveCharging = true;
                     }
                 }
 
-                if ((sc == SDL_SCANCODE_RALT || sc == SDL_SCANCODE_MODE) && scene == SCENE_PLAYING && game.twoPlayerMode) {
-                    if (game.waitingServe && game.serverSide > 0) {
+                if ((sc == SDL_SCANCODE_RALT || sc == SDL_SCANCODE_MODE) && scene == SCENE_PLAYING && game.twoPlayerMode)
+                {
+                    if (game.waitingServe && game.serverSide > 0)
+                    {
                         game.serveCharging = true;
                     }
                 }
 
-                if (sc == SDL_SCANCODE_R) {
+                if (sc == SDL_SCANCODE_R)
+                {
                     init_game(&game, startTwoPlayer, startDifficulty);
                     scene = SCENE_START;
                 }
 
-                if (sc == SDL_SCANCODE_M) {
+                if (sc == SDL_SCANCODE_M)
+                {
                     audio.muted = !audio.muted;
-                    if (audio.muted && audio.device != 0) {
+                    if (audio.muted && audio.device != 0)
+                    {
                         SDL_ClearQueuedAudio(audio.device);
                     }
                 }
 
-                if (sc == SDL_SCANCODE_P) {
-                    if (scene == SCENE_PLAYING) {
+                if (sc == SDL_SCANCODE_P)
+                {
+                    if (scene == SCENE_PLAYING)
+                    {
                         scene = SCENE_PAUSED;
-                    } else if (scene == SCENE_PAUSED) {
+                    }
+                    else if (scene == SCENE_PAUSED)
+                    {
                         scene = SCENE_PLAYING;
                     }
                 }
 
-                if (sc == SDL_SCANCODE_RETURN || sc == SDL_SCANCODE_KP_ENTER) {
-                    if (scene == SCENE_START) {
+                if (sc == SDL_SCANCODE_RETURN || sc == SDL_SCANCODE_KP_ENTER)
+                {
+                    if (scene == SCENE_START)
+                    {
                         init_game(&game, startTwoPlayer, startDifficulty);
                         scene = SCENE_PLAYING;
-                    } else if (scene == SCENE_PAUSED) {
+                    }
+                    else if (scene == SCENE_PAUSED)
+                    {
                         scene = SCENE_PLAYING;
-                    } else if (scene == SCENE_GAME_OVER) {
+                    }
+                    else if (scene == SCENE_GAME_OVER)
+                    {
                         init_game(&game, startTwoPlayer, startDifficulty);
                         scene = SCENE_PLAYING;
                     }
                 }
 
-                if (sc == SDL_SCANCODE_ESCAPE) {
-                    if (scene == SCENE_PLAYING && !game.twoPlayerMode) {
+                if (sc == SDL_SCANCODE_ESCAPE)
+                {
+                    if (scene == SCENE_PLAYING && !game.twoPlayerMode)
+                    {
                         scene = SCENE_NAME_ENTRY;
                         nameSetsFor = game.playerSets;
                         nameSetsAgainst = game.cpuSets;
@@ -2247,29 +2663,40 @@ int main(void) {
                         namePointsAgainst = game.cpuPoints;
                         snprintf(nameInput, sizeof(nameInput), "%s", lastPlayerName);
                         nameInputLen = (int)strlen(nameInput);
-                    } else if (scene == SCENE_START) {
+                    }
+                    else if (scene == SCENE_START)
+                    {
                         running = false;
-                    } else {
+                    }
+                    else
+                    {
                         scene = SCENE_START;
                     }
                 }
             }
 
-            if (event.type == SDL_KEYUP) {
+            if (event.type == SDL_KEYUP)
+            {
                 SDL_Scancode sc = event.key.keysym.scancode;
-                if (sc == SDL_SCANCODE_W || (!game.twoPlayerMode && sc == SDL_SCANCODE_UP)) {
+                if (sc == SDL_SCANCODE_W || (!game.twoPlayerMode && (sc == SDL_SCANCODE_UP || sc == SDL_SCANCODE_SPACE)))
+                {
                     game.player.jumpHoldTimer = 0.0f;
                 }
-                if (game.twoPlayerMode && sc == SDL_SCANCODE_UP) {
+                if (game.twoPlayerMode && sc == SDL_SCANCODE_UP)
+                {
                     game.cpu.jumpHoldTimer = 0.0f;
                 }
-                if ((sc == SDL_SCANCODE_LCTRL || (!game.twoPlayerMode && sc == SDL_SCANCODE_RCTRL)) && scene == SCENE_PLAYING) {
-                    if (game.waitingServe && game.serverSide < 0 && game.serveCharging) {
+                if ((sc == SDL_SCANCODE_LCTRL || (!game.twoPlayerMode && sc == SDL_SCANCODE_RCTRL)) && scene == SCENE_PLAYING)
+                {
+                    if (game.waitingServe && game.serverSide < 0 && game.serveCharging)
+                    {
                         start_human_charged_serve(&game, -1);
                     }
                 }
-                if ((sc == SDL_SCANCODE_RALT || sc == SDL_SCANCODE_MODE) && scene == SCENE_PLAYING && game.twoPlayerMode) {
-                    if (game.waitingServe && game.serverSide > 0 && game.serveCharging) {
+                if ((sc == SDL_SCANCODE_RALT || sc == SDL_SCANCODE_MODE) && scene == SCENE_PLAYING && game.twoPlayerMode)
+                {
+                    if (game.waitingServe && game.serverSide > 0 && game.serveCharging)
+                    {
                         start_human_charged_serve(&game, 1);
                     }
                 }
@@ -2278,7 +2705,8 @@ int main(void) {
 
         Uint64 currentCounter = SDL_GetPerformanceCounter();
         float frameTime = (float)(currentCounter - lastCounter) / (float)SDL_GetPerformanceFrequency();
-        if (frameTime > MAX_ACCUMULATED_TIME) {
+        if (frameTime > MAX_ACCUMULATED_TIME)
+        {
             frameTime = MAX_ACCUMULATED_TIME;
         }
         lastCounter = currentCounter;
@@ -2287,11 +2715,14 @@ int main(void) {
 
         const Uint8 *keys = SDL_GetKeyboardState(NULL);
 
-        while (accumulator >= FIXED_DT) {
-            if (scene == SCENE_PLAYING) {
+        while (accumulator >= FIXED_DT)
+        {
+            if (scene == SCENE_PLAYING)
+            {
                 unsigned events = update_game(&game, FIXED_DT, keys);
                 play_events(&audio, events);
-                if ((events & EVENT_GAME_OVER) && !game.twoPlayerMode) {
+                if ((events & EVENT_GAME_OVER) && !game.twoPlayerMode)
+                {
                     scene = SCENE_NAME_ENTRY;
                     nameSetsFor = game.playerSets;
                     nameSetsAgainst = game.cpuSets;
@@ -2301,7 +2732,9 @@ int main(void) {
                     nameInputLen = (int)strlen(nameInput);
                     break;
                 }
-            } else {
+            }
+            else
+            {
                 accumulator = 0.0f;
                 break;
             }
@@ -2322,15 +2755,15 @@ int main(void) {
             nameSetsFor,
             nameSetsAgainst,
             namePointsFor,
-            namePointsAgainst
-        );
+            namePointsAgainst);
 
         SDL_SetWindowTitle(window, "Volley-Arcade");
     }
 
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
-    if (audio.device != 0) {
+    if (audio.device != 0)
+    {
         SDL_ClearQueuedAudio(audio.device);
         SDL_CloseAudioDevice(audio.device);
     }
