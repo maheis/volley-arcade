@@ -1265,26 +1265,42 @@ static unsigned update_game(Game *game, float dt, const Uint8 *keys)
     }
     refresh_difficulty(game);
 
-    if (!game->waitingServe)
     {
-        if (keys[SDL_SCANCODE_A] || (!game->twoPlayerMode && keys[SDL_SCANCODE_LEFT]))
+        bool playerMoveLeft = keys[SDL_SCANCODE_A] || (!game->twoPlayerMode && keys[SDL_SCANCODE_LEFT]);
+        bool playerMoveRight = keys[SDL_SCANCODE_D] || (!game->twoPlayerMode && keys[SDL_SCANCODE_RIGHT]);
+        bool rightMoveLeft = game->twoPlayerMode && keys[SDL_SCANCODE_LEFT];
+        bool rightMoveRight = game->twoPlayerMode && keys[SDL_SCANCODE_RIGHT];
+
+        if (game->waitingServe)
+        {
+            if (game->serverSide < 0)
+            {
+                /* Left server cannot move forward toward the net (to the right). */
+                playerMoveRight = false;
+            }
+            else if (game->serverSide > 0)
+            {
+                /* Right server cannot move forward toward the net (to the left). */
+                rightMoveLeft = false;
+            }
+        }
+
+        if (playerMoveLeft)
         {
             game->player.x -= PLAYER_SPEED * dt;
         }
-        if (keys[SDL_SCANCODE_D] || (!game->twoPlayerMode && keys[SDL_SCANCODE_RIGHT]))
+        if (playerMoveRight)
         {
             game->player.x += PLAYER_SPEED * dt;
         }
-        if (game->twoPlayerMode)
+
+        if (rightMoveLeft)
         {
-            if (keys[SDL_SCANCODE_LEFT])
-            {
-                game->cpu.x -= PLAYER_SPEED * dt;
-            }
-            if (keys[SDL_SCANCODE_RIGHT])
-            {
-                game->cpu.x += PLAYER_SPEED * dt;
-            }
+            game->cpu.x -= PLAYER_SPEED * dt;
+        }
+        if (rightMoveRight)
+        {
+            game->cpu.x += PLAYER_SPEED * dt;
         }
     }
 

@@ -37,4 +37,5 @@
 [x] blocksprung vs. pritschen
 [x] schwierigkeitsgrade prüfen, schwer schlägt aktuell immer nur drüber.
 [x] wandabpraller und aus in den schwierigkeitsgraden verändern.
-[ ] springen auf space
+[x] springen auf space
+[x] bwegung bei aufschlag
