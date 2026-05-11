@@ -2717,7 +2717,7 @@ int main(void)
         SDL_WINDOWPOS_CENTERED,
         WINDOW_WIDTH,
         WINDOW_HEIGHT,
-        SDL_WINDOW_SHOWN);
+        SDL_WINDOW_SHOWN | SDL_WINDOW_FULLSCREEN_DESKTOP);
     if (!window)
     {
         fprintf(stderr, "SDL_CreateWindow failed: %s\n", SDL_GetError());
@@ -2743,6 +2743,11 @@ int main(void)
     }
 
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+
+    if (SDL_RenderSetLogicalSize(renderer, WINDOW_WIDTH, WINDOW_HEIGHT) != 0)
+    {
+        fprintf(stderr, "SDL_RenderSetLogicalSize failed: %s\n", SDL_GetError());
+    }
 
     bool startTwoPlayer = false;
     int startDifficulty = 1;
