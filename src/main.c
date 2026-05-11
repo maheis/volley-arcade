@@ -169,6 +169,47 @@ static float clampf(float value, float min, float max)
     return value;
 }
 
+static bool predict_ball_x_at_y(const Ball *ball, float gravity, float targetY, float *outX)
+{
+    float a = 0.5f * gravity;
+    float b = ball->vel.y;
+    float c = ball->pos.y - targetY;
+    float disc = b * b - 4.0f * a * c;
+    float t = -1.0f;
+
+    if (disc < 0.0f || fabsf(a) < 0.0001f)
+    {
+        return false;
+    }
+
+    {
+        float sqrtDisc = sqrtf(disc);
+        float t1 = (-b - sqrtDisc) / (2.0f * a);
+        float t2 = (-b + sqrtDisc) / (2.0f * a);
+
+        if (t1 > 0.0f && t2 > 0.0f)
+        {
+            t = t1 < t2 ? t1 : t2;
+        }
+        else if (t1 > 0.0f)
+        {
+            t = t1;
+        }
+        else if (t2 > 0.0f)
+        {
+            t = t2;
+        }
+    }
+
+    if (t <= 0.0f)
+    {
+        return false;
+    }
+
+    *outX = ball->pos.x + ball->vel.x * t;
+    return true;
+}
+
 static void get_highscore_dir_path(char *out, size_t outSize)
 {
     const char *xdgConfigHome = getenv("XDG_CONFIG_HOME");
@@ -574,6 +615,25 @@ static float point_segment_distance_sq(float px, float py, float ax, float ay, f
     }
 }
 
+static void closest_point_on_segment(float px, float py, float ax, float ay, float bx, float by, float *outX, float *outY)
+{
+    float abx = bx - ax;
+    float aby = by - ay;
+    float apx = px - ax;
+    float apy = py - ay;
+    float abLen2 = abx * abx + aby * aby;
+    float t = 0.0f;
+
+    if (abLen2 > 0.0001f)
+    {
+        t = (apx * abx + apy * aby) / abLen2;
+        t = clampf(t, 0.0f, 1.0f);
+    }
+
+    *outX = ax + t * abx;
+    *outY = ay + t * aby;
+}
+
 static void compute_arm_pose(
     float bodyX,
     float bodyY,
@@ -747,15 +807,15 @@ static bool reflect_ball_on_head_zone(Ball *ball, float prevX, float prevY, floa
 
         /* Front edge toward opponent: flatter/faster; back edge: shorter/higher. */
         frontness = towardRight ? hitT : (1.0f - hitT);
-        vxMag = 150.0f + frontness * 280.0f;
-        vyMag = 530.0f - frontness * 310.0f;
+        vxMag = 250.0f + 215.0f * frontness;
+        vyMag = 375.0f + 245.0f * frontness;
 
         /* Airborne contacts are stronger; rising jump gives an extra punch. */
         jumpBoost = 1.0f;
         if (!hitterOnGround)
         {
-            upwardFactor = clampf((-hitterVy) / 520.0f, 0.0f, 1.0f);
-            jumpBoost = 1.12f + 0.18f * upwardFactor;
+            upwardFactor = clampf((-hitterVy) / 560.0f, 0.0f, 1.0f);
+            jumpBoost = 1.02f + 0.07f * upwardFactor;
             vxMag *= jumpBoost;
             vyMag *= jumpBoost;
         }
@@ -777,20 +837,44 @@ static bool reflect_ball_on_head_zone(Ball *ball, float prevX, float prevY, floa
     return true;
 }
 
-static bool reflect_ball_on_hand_zone(Ball *ball, float prevX, float prevY, float handX, float handY, bool towardRight, float hitterVy, bool hitterOnGround)
+static bool reflect_ball_on_hand_zone(
+    Ball *ball,
+    float prevX,
+    float prevY,
+    float shoulderX,
+    float shoulderY,
+    float handX,
+    float handY,
+    bool towardRight,
+    float hitterVy,
+    bool hitterOnGround)
 {
     float sumR = BALL_RADIUS + HAND_HIT_RADIUS;
     float sumR2 = sumR * sumR;
-    float dist2 = point_segment_distance_sq(handX, handY, prevX, prevY, ball->pos.x, ball->pos.y);
+    float handSweepDist2 = point_segment_distance_sq(handX, handY, prevX, prevY, ball->pos.x, ball->pos.y);
+    float armDistNow2 = point_segment_distance_sq(ball->pos.x, ball->pos.y, shoulderX, shoulderY, handX, handY);
+    float armDistPrev2 = point_segment_distance_sq(prevX, prevY, shoulderX, shoulderY, handX, handY);
+    float handNowDx = ball->pos.x - handX;
+    float handNowDy = ball->pos.y - handY;
+    float handNowDist2 = handNowDx * handNowDx + handNowDy * handNowDy;
+    bool handHit = handSweepDist2 <= sumR2;
+    bool armHit = armDistNow2 <= sumR2 || armDistPrev2 <= sumR2;
+    float contactX = handX;
+    float contactY = handY;
 
-    if (dist2 > sumR2)
+    if (!handHit && !armHit)
     {
         return false;
     }
 
+    if (armHit && armDistNow2 < handNowDist2)
     {
-        float nx = ball->pos.x - handX;
-        float ny = ball->pos.y - handY;
+        closest_point_on_segment(ball->pos.x, ball->pos.y, shoulderX, shoulderY, handX, handY, &contactX, &contactY);
+    }
+
+    {
+        float nx = ball->pos.x - contactX;
+        float ny = ball->pos.y - contactY;
         float nLen2 = nx * nx + ny * ny;
         float nLen;
 
@@ -807,12 +891,12 @@ static bool reflect_ball_on_hand_zone(Ball *ball, float prevX, float prevY, floa
 
         nx /= nLen;
         ny /= nLen;
-        ball->pos.x = handX + nx * (sumR + 1.0f);
-        ball->pos.y = handY + ny * (sumR + 1.0f);
+        ball->pos.x = contactX + nx * (sumR + 1.0f);
+        ball->pos.y = contactY + ny * (sumR + 1.0f);
     }
 
     {
-        float handHit = (ball->pos.y - (handY - HAND_HIT_RADIUS)) / (2.0f * HAND_HIT_RADIUS);
+        float handHit = (ball->pos.y - (contactY - HAND_HIT_RADIUS)) / (2.0f * HAND_HIT_RADIUS);
         float topHit;
         float vxMag;
         float vyMag;
@@ -821,13 +905,13 @@ static bool reflect_ball_on_hand_zone(Ball *ball, float prevX, float prevY, floa
         handHit = clampf(handHit, 0.0f, 1.0f);
         topHit = 1.0f - handHit;
 
-        vxMag = 240.0f + 210.0f * topHit;
-        vyMag = 360.0f + 240.0f * topHit;
+        vxMag = 250.0f + 215.0f * topHit;
+        vyMag = 375.0f + 245.0f * topHit;
 
         if (!hitterOnGround)
         {
             float upwardFactor = clampf((-hitterVy) / 560.0f, 0.0f, 1.0f);
-            jumpBoost = 1.06f + 0.20f * upwardFactor;
+            jumpBoost = 1.02f + 0.07f * upwardFactor;
             vxMag *= jumpBoost;
             vyMag *= jumpBoost;
         }
@@ -1297,8 +1381,39 @@ static unsigned update_game(Game *game, float dt, const Uint8 *keys)
 
     if (!game->twoPlayerMode)
     {
-        float cpuTargetX = clampf(game->ball.pos.x - (PLAYER_W * 0.5f), NET_X + 8.0f, COURT_MAX_X - PLAYER_W);
-        float cpuMoveSpeed = CPU_SPEED * game->cpuSpeedScale * aiFactor;
+        float cpuTargetX;
+        float cpuMoveSpeed;
+        float predictedX = 0.0f;
+        float interceptY = cpuHeadY + 18.0f;
+        bool predicted = false;
+        bool urgentDefend;
+
+        if (game->ball.pos.x > NET_X - 14.0f)
+        {
+            predicted = predict_ball_x_at_y(&game->ball, GRAVITY, interceptY, &predictedX);
+        }
+
+        if (game->ball.pos.x > NET_X + 8.0f && predicted)
+        {
+            cpuTargetX = predictedX - (PLAYER_W * 0.5f);
+        }
+        else if (game->ball.pos.x > NET_X + 8.0f)
+        {
+            cpuTargetX = game->ball.pos.x - (PLAYER_W * 0.5f);
+        }
+        else
+        {
+            cpuTargetX = NET_X + 102.0f;
+        }
+
+        cpuTargetX = clampf(cpuTargetX, NET_X + 8.0f, COURT_MAX_X - PLAYER_W);
+        cpuMoveSpeed = CPU_SPEED * game->cpuSpeedScale * aiFactor;
+        urgentDefend = (game->ball.pos.x > NET_X + 8.0f && game->ball.vel.y > 130.0f);
+        if (urgentDefend)
+        {
+            cpuMoveSpeed *= 1.28f;
+        }
+
         if (game->cpu.x < cpuTargetX)
         {
             game->cpu.x += cpuMoveSpeed * dt;
@@ -1319,21 +1434,27 @@ static unsigned update_game(Game *game, float dt, const Uint8 *keys)
 
     if (!game->twoPlayerMode)
     {
-        if (game->ball.pos.x < NET_X + (90.0f * aiFactor) &&
-            game->ball.vel.x < -40.0f &&
-            game->ball.pos.y > NET_TOP_Y - (40.0f * aiFactor) &&
-            game->ball.pos.y < NET_TOP_Y + (110.0f * aiFactor))
-        {
-            shouldCpuBlock = true;
-        }
+        bool ballNearNetAttack =
+            game->ball.pos.x < NET_X + (98.0f * aiFactor) &&
+            game->ball.vel.x < -25.0f &&
+            game->ball.pos.y > NET_TOP_Y - (54.0f * aiFactor) &&
+            game->ball.pos.y < NET_TOP_Y + (126.0f * aiFactor);
 
-        if (game->ball.pos.x > NET_X + 24.0f &&
-            fabsf(game->ball.pos.x - cpuHeadX) < 58.0f * aiFactor &&
-            game->ball.pos.y < cpuHeadY - 18.0f * aiFactor &&
-            game->ball.vel.y > 40.0f / aiFactor)
-        {
-            shouldCpuJump = true;
-        }
+        bool defensiveJumpWindow =
+            game->ball.pos.x > NET_X + 18.0f &&
+            fabsf(game->ball.pos.x - cpuHeadX) < 74.0f * aiFactor &&
+            game->ball.pos.y < cpuHeadY + 20.0f &&
+            game->ball.pos.y > cpuHeadY - 130.0f &&
+            game->ball.vel.y > -35.0f;
+
+        bool emergencySave =
+            game->ball.pos.x > NET_X + 18.0f &&
+            fabsf(game->ball.pos.x - cpuHeadX) < 96.0f &&
+            game->ball.pos.y > FLOOR_Y - 124.0f &&
+            game->ball.vel.y > 170.0f;
+
+        shouldCpuBlock = ballNearNetAttack;
+        shouldCpuJump = defensiveJumpWindow || emergencySave;
     }
 
     if (game->player.isBlocking)
@@ -1443,7 +1564,17 @@ static unsigned update_game(Game *game, float dt, const Uint8 *keys)
         if (!game->serveOutOnMax && can_touch_ball(game))
         {
             bool playerTouched = false;
-            if (reflect_ball_on_hand_zone(&game->ball, prevBallX, prevBallY, playerHandX, playerHandY, true, game->player.vy, game->player.onGround))
+            if (reflect_ball_on_hand_zone(
+                    &game->ball,
+                    prevBallX,
+                    prevBallY,
+                    playerShoulderX,
+                    playerShoulderY,
+                    playerHandX,
+                    playerHandY,
+                    true,
+                    game->player.vy,
+                    game->player.onGround))
             {
                 playerTouched = true;
             }
@@ -1471,7 +1602,17 @@ static unsigned update_game(Game *game, float dt, const Uint8 *keys)
             if (can_touch_ball(game))
             {
                 bool cpuTouched = false;
-                if (reflect_ball_on_hand_zone(&game->ball, prevBallX, prevBallY, cpuHandX, cpuHandY, false, game->cpu.vy, game->cpu.onGround))
+                if (reflect_ball_on_hand_zone(
+                        &game->ball,
+                        prevBallX,
+                        prevBallY,
+                        cpuShoulderX,
+                        cpuShoulderY,
+                        cpuHandX,
+                        cpuHandY,
+                        false,
+                        game->cpu.vy,
+                        game->cpu.onGround))
                 {
                     cpuTouched = true;
                 }
