@@ -210,6 +210,25 @@ static bool predict_ball_x_at_y(const Ball *ball, float gravity, float targetY, 
     return true;
 }
 
+static bool predict_ball_y_at_x(const Ball *ball, float gravity, float targetX, float *outY)
+{
+    if (fabsf(ball->vel.x) < 0.001f)
+    {
+        return false;
+    }
+
+    {
+        float t = (targetX - ball->pos.x) / ball->vel.x;
+        if (t <= 0.0f)
+        {
+            return false;
+        }
+
+        *outY = ball->pos.y + ball->vel.y * t + 0.5f * gravity * t * t;
+        return true;
+    }
+}
+
 static void get_highscore_dir_path(char *out, size_t outSize)
 {
     const char *xdgConfigHome = getenv("XDG_CONFIG_HOME");
@@ -831,7 +850,16 @@ static void draw_arm_with_hand(
     draw_rotated_filled_ellipse(renderer, (int)handCx, (int)handCy, HAND_OVAL_RX, HAND_OVAL_RY, handAngle);
 }
 
-static bool reflect_ball_on_head_zone(Ball *ball, float prevX, float prevY, float headX, float headY, bool towardRight, float hitterVy, bool hitterOnGround)
+static bool reflect_ball_on_head_zone(
+    Ball *ball,
+    float prevX,
+    float prevY,
+    float headX,
+    float headY,
+    bool towardRight,
+    float hitterVy,
+    bool hitterOnGround,
+    bool allowBackHeadHit)
 {
     float sumR = BALL_RADIUS + HEAD_RADIUS;
     float sumR2 = sumR * sumR;
@@ -893,7 +921,7 @@ static bool reflect_ball_on_head_zone(Ball *ball, float prevX, float prevY, floa
         }
 
         /* Rear quarter of the head sends the ball backwards. */
-        backHeadHit = frontness < 0.25f;
+        backHeadHit = allowBackHeadHit && (frontness < 0.25f);
 
         if (backHeadHit)
         {
@@ -1472,26 +1500,55 @@ static unsigned update_game(Game *game, float dt, const Uint8 *keys)
         float cpuTargetX;
         float cpuMoveSpeed;
         float predictedX = 0.0f;
+        float predictedLandingX = 0.0f;
+        float predictedNetY = 0.0f;
         float interceptY = cpuHeadY + 18.0f;
         bool predicted = false;
+        bool predictedLanding = false;
+        bool predictedAtNet = false;
         bool urgentDefend;
+        float tacticalOffset = 10.0f;
 
         if (game->ball.pos.x > NET_X - 14.0f)
         {
             predicted = predict_ball_x_at_y(&game->ball, GRAVITY, interceptY, &predictedX);
+            predictedLanding = predict_ball_x_at_y(&game->ball, GRAVITY, FLOOR_Y - BALL_RADIUS - 4.0f, &predictedLandingX);
+        }
+        predictedAtNet = predict_ball_y_at_x(&game->ball, GRAVITY, NET_X + BALL_RADIUS + 6.0f, &predictedNetY);
+
+        if (game->touchesRight >= 1)
+        {
+            tacticalOffset = 14.0f;
+        }
+        if (game->touchesRight >= 2)
+        {
+            tacticalOffset = 6.0f;
         }
 
         if (game->ball.pos.x > NET_X + 8.0f && predicted)
         {
-            cpuTargetX = predictedX - (PLAYER_W * 0.5f);
+            cpuTargetX = predictedX - (PLAYER_W * 0.5f) + tacticalOffset;
+
+            if (predictedLanding && predictedLandingX > NET_X + 8.0f &&
+                fabsf(predictedLandingX - cpuHeadX) < 96.0f && game->ball.vel.y > 160.0f)
+            {
+                /* For low emergency saves, get a bit more centered under the ball. */
+                cpuTargetX = predictedX - (PLAYER_W * 0.5f) + 4.0f;
+            }
         }
         else if (game->ball.pos.x > NET_X + 8.0f)
         {
-            cpuTargetX = game->ball.pos.x - (PLAYER_W * 0.5f);
+            cpuTargetX = game->ball.pos.x - (PLAYER_W * 0.5f) + tacticalOffset;
         }
         else
         {
-            cpuTargetX = NET_X + 102.0f;
+            /* Hold a smarter standby lane near net or midcourt based on rally flow. */
+            cpuTargetX = (game->lastTouchSide > 0) ? (NET_X + 74.0f) : (NET_X + 122.0f);
+
+            if (predictedAtNet && predictedNetY > NET_TOP_Y - 20.0f && predictedNetY < NET_TOP_Y + 120.0f)
+            {
+                cpuTargetX = NET_X + 42.0f;
+            }
         }
 
         cpuTargetX = clampf(cpuTargetX, NET_X + 8.0f, COURT_MAX_X - PLAYER_W);
@@ -1522,11 +1579,16 @@ static unsigned update_game(Game *game, float dt, const Uint8 *keys)
 
     if (!game->twoPlayerMode)
     {
+        float predictedNetY = 0.0f;
+        float predictedLandingX = 0.0f;
+        bool netPredicted = predict_ball_y_at_x(&game->ball, GRAVITY, NET_X + BALL_RADIUS + 4.0f, &predictedNetY);
+        bool landingPredicted = predict_ball_x_at_y(&game->ball, GRAVITY, FLOOR_Y - BALL_RADIUS - 4.0f, &predictedLandingX);
+
         bool ballNearNetAttack =
-            game->ball.pos.x < NET_X + (98.0f * aiFactor) &&
-            game->ball.vel.x < -25.0f &&
-            game->ball.pos.y > NET_TOP_Y - (54.0f * aiFactor) &&
-            game->ball.pos.y < NET_TOP_Y + (126.0f * aiFactor);
+            game->ball.vel.x < -20.0f &&
+            netPredicted &&
+            predictedNetY > NET_TOP_Y - (40.0f * aiFactor) &&
+            predictedNetY < NET_TOP_Y + (120.0f * aiFactor);
 
         bool defensiveJumpWindow =
             game->ball.pos.x > NET_X + 18.0f &&
@@ -1536,10 +1598,11 @@ static unsigned update_game(Game *game, float dt, const Uint8 *keys)
             game->ball.vel.y > -35.0f;
 
         bool emergencySave =
-            game->ball.pos.x > NET_X + 18.0f &&
-            fabsf(game->ball.pos.x - cpuHeadX) < 96.0f &&
-            game->ball.pos.y > FLOOR_Y - 124.0f &&
-            game->ball.vel.y > 170.0f;
+            landingPredicted &&
+            predictedLandingX > NET_X + 8.0f &&
+            fabsf(predictedLandingX - cpuHeadX) < 98.0f &&
+            game->ball.pos.y > FLOOR_Y - 138.0f &&
+            game->ball.vel.y > 150.0f;
 
         shouldCpuBlock = ballNearNetAttack;
         shouldCpuJump = defensiveJumpWindow || emergencySave;
@@ -1666,7 +1729,7 @@ static unsigned update_game(Game *game, float dt, const Uint8 *keys)
             {
                 playerTouched = true;
             }
-            else if (reflect_ball_on_head_zone(&game->ball, prevBallX, prevBallY, playerHeadX, playerHeadY, true, game->player.vy, game->player.onGround))
+            else if (reflect_ball_on_head_zone(&game->ball, prevBallX, prevBallY, playerHeadX, playerHeadY, true, game->player.vy, game->player.onGround, true))
             {
                 playerTouched = true;
             }
@@ -1704,13 +1767,19 @@ static unsigned update_game(Game *game, float dt, const Uint8 *keys)
                 {
                     cpuTouched = true;
                 }
-                else if (reflect_ball_on_head_zone(&game->ball, prevBallX, prevBallY, cpuHeadX, cpuHeadY, false, game->cpu.vy, game->cpu.onGround))
+                else if (reflect_ball_on_head_zone(&game->ball, prevBallX, prevBallY, cpuHeadX, cpuHeadY, false, game->cpu.vy, game->cpu.onGround, false))
                 {
                     cpuTouched = true;
                 }
 
                 if (cpuTouched)
                 {
+                    if (game->ball.vel.x > -170.0f)
+                    {
+                        /* Keep CPU returns flowing toward the opponent side. */
+                        game->ball.vel.x = -170.0f;
+                    }
+
                     register_ball_touch(game);
                     game->lastTouchSide = 1;
                     game->touchesRight += 1;
