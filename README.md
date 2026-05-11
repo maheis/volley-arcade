@@ -1,6 +1,6 @@
 # Volley-Arcade
 
-Kleines Volleyball-Arcade-Spiel, das als Geburtstagsgeschenk mit Hilfe von Copilot erstellt wurde.s
+Kleines Volleyball-Arcade-Spiel, das als Geburtstagsgeschenk mit Hilfe von Copilot erstellt wurde.
 
 ## Voraussetzungen
 
@@ -45,6 +45,41 @@ make
 
 ```bash
 make run
+```
+
+## Verknuepfung unter Debian/antiX
+
+So erstellst du einen Starter im Anwendungsmenue:
+
+1. Projekt einmal bauen (`make`), damit die Binardatei `volley-arcade` existiert.
+2. Datei `~/.local/share/applications/volley-arcade.desktop` anlegen.
+3. Inhalt eintragen (Pfad anpassen):
+
+```ini
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Volley-Arcade
+Comment=Retro Volleyball Spiel
+Exec=/home/mani/tmp/volley-arcade/volley-arcade
+Path=/home/mani/tmp/volley-arcade
+Icon=/home/mani/tmp/volley-arcade/assets/icons/volleyball-pixel-icon.png
+Terminal=false
+Categories=Game;SportsGame;
+StartupNotify=true
+```
+
+4. Starter ausführbar machen:
+
+```bash
+chmod +x ~/.local/share/applications/volley-arcade.desktop
+```
+
+Optional: Verknuepfung direkt auf dem Desktop (falls dein antiX-Desktop das nutzt):
+
+```bash
+cp ~/.local/share/applications/volley-arcade.desktop ~/Desktop/
+chmod +x ~/Desktop/volley-arcade.desktop
 ```
 
 ## Steuerung
